@@ -1,0 +1,138 @@
+{
+  "name": "@ansavva/design-system",
+  "version": "0.14.1",
+  "description": "An owned, platform-split design system: one props module per component, a React DOM + Tailwind web leaf, and a React Native leaf over @ansavva/tokens.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ansavva/design-system.git",
+    "directory": "packages/design-system"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "//": [
+    "Each component is three files: <name>.props.ts (shared logic/variants —",
+    "imports NOTHING from react-native/react-dom/base-ui, ESLint-enforced),",
+    "<name>.web.tsx (React DOM + Tailwind) and <name>.native.tsx (React Native",
+    "primitives over @ansavva/tokens). The per-component index re-exports",
+    "the extensionless './<name>' and the CONSUMER'S bundler picks the leaf:",
+    "Vite resolves .web.tsx, Metro resolves .native.tsx (and react-native-web",
+    "can render the .native leaf on web too, for a consumer that ships no Tailwind).",
+    "",
+    "Litmus test for new components: pure data/styling maps may later collapse",
+    "to a single shared file; anything with events, state, or a11y wiring is a",
+    "leaf pair from day one — the platforms' event and accessibility models do",
+    "not unify.",
+    "",
+    "This package PUBLISHES SOURCE — `files: [\"src\"]`, exports point at .ts,",
+    "and there is deliberately NO build step. Leaf resolution happens in the",
+    "consumer's bundler, so the .web.tsx/.native.tsx pairs must survive into",
+    "the published artifact verbatim; a package-side build (tsup, tsc --emit)",
+    "would collapse the pair into one compiled entry and break the pattern.",
+    "Do not 'fix' this by adding a build.",
+    "",
+    "Two consumers, ONE channel: every consumer installs",
+    "the PUBLISHED version from GitHub Packages. Through 0.5.x a consumer was a",
+    "sibling workspace member and read this package's source through a symlink,",
+    "so a merge reached it with no publish and no version bump — extracting",
+    "this package into its own repo is what removed that second channel. Every",
+    "change here is now its own PR with a version bump, and no consumer can see",
+    "it before it ships.",
+    "",
+    "clsx + tailwind-merge are real dependencies (cn() runs at render/SSR time",
+    "on web). react-native and @ansavva/tokens are DELIBERATELY NOT",
+    "DECLARED here — not as dependencies, and not as peers, optional or",
+    "otherwise. GitHub Packages strips peerDependenciesMeta from registry",
+    "metadata (the tarball carries it; the registry document does not), so npm",
+    "treats an 'optional' peer as REQUIRED. Declaring react-native would",
+    "therefore force every web consumer to install a native renderer it never",
+    "loads; a web consumer's container build broke on exactly this once.",
+    "",
+    "@ansavva/tokens is published now, so declaring it would no longer 404",
+    "the way it did when tokens was private — the failure it caused is gone,",
+    "the reason to leave it undeclared is not. The native leaves are the only",
+    "code that imports it, no web resolver can reach them, and their imports",
+    "resolve from the CONSUMER's own dependencies (a React Native consumer",
+    "declares tokens itself). Declaring it here would buy documentation and",
+    "charge every web consumer an install. This comment is that documentation",
+    "instead."
+  ],
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme.css": "./src/styles/theme.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.native.json && tsc -p tsconfig.native.test.json",
+    "typecheck:native": "tsc -p tsconfig.native.json",
+    "typecheck:native-test": "tsc -p tsconfig.native.test.json",
+    "test": "vitest run",
+    "typecheck:web": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.2"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "//devDependencies": [
+    "react/react-dom/react-native/@types/react are pinned to EXACT versions so",
+    "this workspace dedupes to one copy and the leaves typecheck against a real",
+    "renderer. Keep them in step with what consumers install, or the native",
+    "leaves are typechecked against a renderer nobody ships. react-native is",
+    "here so `typecheck:native` resolves REAL RN types (RN ships its own since",
+    "0.71). vitest itself comes from the root workspace devDependencies.",
+    "@ansavva/tokens is `*` because it is the sibling workspace member —",
+    "the one place a symlink to it is still correct.",
+    "react-native-web is the native tests' renderer: the vitest `native` project",
+    "aliases react-native to it, the same pair a React Native consumer uses on",
+    "the web.",
+    "jsdom is on 30 rather than the 25 this package arrived with, purely to",
+    "drop a deprecated transitive (whatwg-encoding). It is test-only, so the",
+    "published artifact is byte-identical — the version bump exists only",
+    "because the PR gate diffs the package DIRECTORY, not the tarball.",
+    "tailwindcss is here for src/styles/theme.test.ts, which compiles theme.css",
+    "with the real Tailwind to prove the @theme block does not redefine a",
+    "built-in utility. It is DECLARED rather than left to resolve from the root",
+    "workspace on purpose: Node resolution walks up, so a hoisted copy would",
+    "satisfy the import and hide the fact that this package's tests depend on",
+    "it. Test-only either way — no consumer installs it from here, and the",
+    "web leaves still expect the CONSUMER to supply Tailwind."
+  ],
+  "devDependencies": {
+    "@ansavva/tokens": "*",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.1",
+    "jsdom": "^30.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-web": "0.21.2",
+    "tailwindcss": "^4.3.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

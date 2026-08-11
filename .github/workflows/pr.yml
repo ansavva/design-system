@@ -1,0 +1,319 @@
+name: PR
+
+# One job for the whole repo, and no `paths:` filter.
+#
+# The monorepo this came from splits its gates per package and guards each one
+# with a changed-paths filter, because a required status check must report on
+# every PR there and an unrelated PR should still be cheap. Neither pressure
+# exists here: there are two packages, they share a toolchain, the token
+# generator writes across both, and the entire suite runs in well under a
+# minute. Splitting it would buy nothing and add a way for a PR that changes
+# tokens to skip the design system's tests.
+#
+# TWO KINDS OF CHECK LIVE HERE, and the difference decides where a new one goes.
+#
+# Most of them are MERGE gates: diff-relative, addressed to the author, and
+# meaningful only before a merge — the version-bump gates literally compare
+# against a PR base. Failing one costs a commit. They keep their
+# `if: github.event_name == 'pull_request'` guards even though this workflow
+# now has no other trigger: the guards are what make re-adding one safe, since
+# without them a push event would hand those steps an empty base SHA.
+#
+# `Artifacts are publishable` is a RELEASE gate: it asks whether the packed
+# tarball is well-formed, with no reference to what changed. Its authoritative
+# copy is in publish.yml, in the same job as `npm publish` and immediately
+# before it, because a bad publish cannot be taken back off GitHub Packages.
+# The copy here is the early warning. A new check that would still make sense
+# with nothing changed belongs in that group, not this one — which in practice
+# means adding it to scripts/check-artifacts.ts, where both copies come from.
+#
+# PULL REQUESTS ONLY. There is deliberately no `push: branches: [main]`.
+#
+# There was one until this commit, and its stated job was to make a merge that
+# somehow lands red visible on the branch. That is a real failure — a PR is
+# checked against `refs/pull/N/merge`, its head merged into base AS OF THE
+# CHECK, so a base that moves between the last run and the merge button can
+# produce a green PR and a red `main`.
+#
+# But running the suite again afterwards only REPORTS that; the bad merge has
+# already happened, and the publish does not wait for it (publish.yml triggers
+# on the same push and runs concurrently — which is why anything that must
+# block a release lives there, not here). The window is better closed at the
+# source, by the `protect-main` ruleset: `required_status_checks` names this
+# workflow's `Checks` job, and its "require branches to be up to date before
+# merging" policy forces a re-run against current `main` before the merge is
+# allowed at all. Prevention where there was a post-mortem.
+#
+# So: if that ruleset is ever weakened — the strict policy switched off, the
+# `Checks` context dropped — this trigger is the fallback that was removed on
+# the assumption it holds. Restore it, or restore the ruleset.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: the version gate below diffs against the PR base.
+          fetch-depth: 0
+
+      # Must match the root package.json's `engines.node` (">=24").
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      # `ci`, never `install`: the lockfile is committed precisely so CI
+      # resolves the same tree twice running, and `ci` fails loudly when
+      # package.json and the lockfile have drifted apart.
+      - name: Install
+        run: npm ci
+
+      # Version-bump gate, before anything expensive — a PR that forgot the
+      # bump should be told so in fifteen seconds, not after the test suite.
+      #
+      # Both packages publish on merge to main, and the publish job is
+      # idempotent BY VERSION: it skips cleanly when the manifest's version is
+      # already in the registry. So an unbumped package change merges green,
+      # publishes nothing, and leaves the registry silently stale — the
+      # consuming repo would keep installing the old artifact with no error
+      # anywhere. This step is the only thing standing between that and a
+      # release.
+      - name: Require a version bump for every changed package
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          # Fail loudly if the base COMMIT is missing rather than treating an
+          # unreadable base as "nothing changed" — a guard that cannot see the
+          # diff must not wave the PR through.
+          git cat-file -e "$BASE_SHA^{commit}"
+
+          failed=0
+          for pkg_dir in packages/*/; do
+            pkg_dir="${pkg_dir%/}"
+            manifest="$pkg_dir/package.json"
+
+            if git diff --quiet "$BASE_SHA" HEAD -- "$pkg_dir"; then
+              echo "· $pkg_dir — unchanged."
+              continue
+            fi
+
+            # A missing blob at base means this PR introduces the package. A
+            # first version is a version change by definition.
+            if ! git cat-file -e "$BASE_SHA:$manifest" 2>/dev/null; then
+              echo "· $pkg_dir — introduced by this PR; nothing to compare."
+              continue
+            fi
+
+            base_pkg="$(git show "$BASE_SHA:$manifest")"
+            base_version="$(node -p 'JSON.parse(process.argv[1]).version' "$base_pkg")"
+            head_version="$(node -p "require('./$manifest').version")"
+
+            if [ "$head_version" = "$base_version" ]; then
+              echo "::error file=$manifest::This PR changes $pkg_dir/ but leaves version at $base_version. Both packages publish on merge to main; bump \`version\` — the consuming repo installs the published artifact, so an unbumped change ships nothing."
+              failed=1
+            else
+              echo "· $pkg_dir — $base_version -> $head_version."
+            fi
+          done
+
+          exit "$failed"
+
+      # The same gate for the agent-skills plugin, which is versioned
+      # independently of the packages — it lives outside packages/ precisely so
+      # that a wording fix in a skill does not publish a component release.
+      #
+      # Marketplace consumers only receive an update when this string changes,
+      # and the plugin has THREE manifests (Claude, Codex, Cursor) that must
+      # agree. `npm run skills:check` below checks that they agree; this checks
+      # that a change moved them at all.
+      - name: Require a version bump when the plugin changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          git cat-file -e "$BASE_SHA^{commit}"
+
+          manifest="plugins/design-system/.claude-plugin/plugin.json"
+
+          if git diff --quiet "$BASE_SHA" HEAD -- plugins/; then
+            echo "· plugins/ — unchanged."
+            exit 0
+          fi
+
+          if ! git cat-file -e "$BASE_SHA:$manifest" 2>/dev/null; then
+            echo "· plugins/ — introduced by this PR; nothing to compare."
+            exit 0
+          fi
+
+          base_pkg="$(git show "$BASE_SHA:$manifest")"
+          base_version="$(node -p 'JSON.parse(process.argv[1]).version' "$base_pkg")"
+          head_version="$(node -p "require('./$manifest').version")"
+
+          if [ "$head_version" = "$base_version" ]; then
+            echo "::error file=$manifest::This PR changes plugins/ but leaves the plugin at $base_version. Installed plugins update only when this version changes, so an unbumped skill edit reaches nobody. Bump it in all three manifests."
+            exit 1
+          fi
+
+          echo "· plugins/ — $base_version -> $head_version."
+
+      # Every SKILL.md in the repo: audience prefix, description and body
+      # limits, name matching its directory, and the three plugin manifests
+      # agreeing on a version. Dependency-free and instant, so it sits with the
+      # other cheap gates rather than after the suite.
+      - name: Skill checks
+        run: npm run skills:check
+
+      # The other half of the version-bump gate above.
+      #
+      # That one makes a changed package take a new version. This one makes the
+      # new version say what a consumer gets. Together they close the gap this
+      # repo shipped through 0.13.0 with: every change was recorded, in an
+      # unusually complete PR body, on a host the installed package cannot reach
+      # — so an agent reading `node_modules/@ansavva/design-system` found
+      # nothing at all, which is exactly where it should have looked.
+      #
+      # Deliberately NOT diff-relative, so it needs no PR base and runs the same
+      # way in `npm run ci`: it asks only whether the version now in the manifest
+      # has an entry. Composed with the bump gate, the property falls out.
+      # scripts/check-changelog.ts owns the reasoning and the format.
+      - name: Changelog checks
+        run: npm run changelog:check
+
+      # The RELEASE gate, run early rather than only at release time.
+      #
+      # Every gate above is a MERGE gate: diff-relative, addressed to the
+      # author, meaningful only before a merge. This one is different in kind —
+      # it asks whether the TARBALL is well-formed, with no reference to what
+      # changed. Its authoritative copy is in publish.yml, in the same job as
+      # `npm publish` and immediately before it, because a bad publish cannot be
+      # undone on GitHub Packages. The copy here exists so the failure surfaces
+      # on the PR rather than after the merge, when the only remedy left is a
+      # forward version bump.
+      #
+      # Up here with the other cheap gates for the same reason the version-bump
+      # gate is: two `npm pack --dry-run` calls take seconds, and a malformed
+      # `files` list should not be reported after the browser suite.
+      #
+      # Packing is what lets it see three things no other check can, because
+      # every other one reads the working tree: a collapsed `.web`/`.native`
+      # pair (someone added a build step), test files leaking into the tarball,
+      # and an `exports` target pointing at nothing. The last is invisible even
+      # to the workbench, which reaches past `exports` into source.
+      # scripts/check-artifacts.ts owns the reasoning.
+      - name: Artifacts are publishable
+        run: npm run artifacts:check
+
+      # Before lint/typecheck/test, for the honest failure: if someone
+      # hand-edited a generated file, the error should say "you edited the
+      # wrong file", not surface as a downstream complaint about the edit.
+      - name: Token drift check
+        run: npm run tokens:check
+
+      # Via each package's own script, not `npx eslint` from the root: there is
+      # deliberately no `eslint.config.js` at the repo root (see
+      # eslint.base.js), so ESLint with the root as its cwd would find no
+      # config at all.
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format
+
+      # Granular rather than the root `typecheck` fan-out, so a red X says
+      # WHICH platform broke. The native program is the one this web-only CI
+      # would otherwise never exercise: without it a PR could be green
+      # everywhere and still ship `.native` leaves that fail the moment Metro
+      # resolves them.
+      - name: Typecheck (tokens)
+        run: npm run typecheck --workspace @ansavva/tokens
+
+      - name: Typecheck (design system, web)
+        run: npm run typecheck:web --workspace @ansavva/design-system
+
+      - name: Typecheck (design system, native)
+        run: npm run typecheck:native --workspace @ansavva/design-system
+
+      - name: Typecheck (design system, native tests)
+        run: npm run typecheck:native-test --workspace @ansavva/design-system
+
+      # The fourth program: the workbench stories. They are outside every
+      # tsconfig the packages own, so until 0.8.3 nothing typechecked them and
+      # the Button story rendered `intent="danger"` — an intent that does not
+      # exist — as an unstyled button labelled "danger". The a11y step below
+      # cannot see that (an unstyled button violates no axe rule) and
+      # "Workbench builds" cannot either (it transpiles, it does not check
+      # types). See tsconfig.workbench.json.
+      - name: Typecheck (workbench stories)
+        run: npm run typecheck:workbench
+
+      # The fifth program: scripts/. A gate script nobody typechecks is a gate
+      # that can silently stop gating — the same failure the workbench program
+      # above was added to fix. See tsconfig.scripts.json.
+      - name: Typecheck (scripts)
+        run: npm run typecheck:scripts
+
+      - name: Test
+        run: npm run test
+
+      # The workbench is the only place in this repo where a component is
+      # LOOKED AT rather than asserted about — `.storybook/main.ts` says so
+      # directly, and it's what the a11y step below actually exercises: every
+      # story, in a real browser, with a real accessibility tree. A component
+      # with no story is invisible to that check, and to a human, at once —
+      # twenty of this package's twenty-two components shipped that way before
+      # anything caught it. This runs `workbench/story-coverage.test.ts` under
+      # plain Node (no browser needed, so it runs before the Playwright install
+      # below rather than after) and fails with the exact missing path.
+      - name: Workbench story coverage
+        run: npm run test:workbench
+
+      # Accessibility, gated rather than reported.
+      #
+      # Runs every story as a test in a real Chromium and fails on any axe
+      # violation (`a11y.test: 'error'` in .storybook/preview.tsx). This is the
+      # only check in the repo that sees computed styles and a real
+      # accessibility tree — colour contrast and target size do not exist under
+      # jsdom, where the rest of the suite lives — so it catches a class of
+      # defect the 348 unit tests structurally cannot.
+      #
+      # ONCE PER COLOUR SCHEME, light then dark (the script chains the two
+      # halves; .storybook/main.ts owns how the scheme reaches the preview). A
+      # story renders in one scheme per run, so a light-only gate is blind to
+      # every dark value — which is how `--color-danger` shipped at 2.9:1
+      # against the dark canvas, in the colour Field.Error paints its message,
+      # green here the whole time.
+      #
+      # Playwright's browser download is the slowest step here by far, hence
+      # `--only-shell`: the story tests need Chromium's headless shell and none
+      # of the rest.
+      - name: Install Playwright (Chromium)
+        run: npx playwright install chromium --only-shell --with-deps
+
+      - name: Accessibility (axe, every story)
+        run: npm run test:a11y
+
+      # The workbench is not tested, but it must still COMPILE.
+      #
+      # It is the only place either repo can see a component, and it breaks in
+      # a way nothing else notices: it reaches past the packages' `exports` into
+      # their source, so a moved or renamed file leaves every other check green
+      # and the workbench dead. The person who finds out is whoever next needs
+      # to look at a component, usually while debugging something else.
+      #
+      # A build, not a smoke test — it type-checks nothing (the stories are
+      # outside every tsconfig program) but it does resolve every import and
+      # compile every story, which is the failure being guarded.
+      - name: Workbench builds
+        run: npm run storybook:build

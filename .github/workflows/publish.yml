@@ -1,0 +1,219 @@
+name: Publish
+
+# Trigger: push to main (+ manual dispatch as an escape hatch).
+#
+# Push, not dispatch-only, because the consumer is another repo's CI: a version
+# bump merged here must be installable without a human remembering to press a
+# button. The job is a no-op on every push that does not change a version (see
+# the guard below), so "publish on push" costs a couple of cheap registry
+# lookups and never a red X.
+#
+# `workflow_dispatch` stays for re-publishing after a transient registry
+# failure, and for the first publish of a version that landed on main before
+# this workflow existed.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# `packages: write` to publish to GitHub Packages, and `contents: write` for the
+# tag and GitHub Release each published version now gets — that is the whole
+# privilege set. No `id-token: write`: there is no OIDC role here, and this job
+# reaches no cloud account.
+#
+# `contents: write` is the one real escalation in this workflow, so keep its
+# blast radius in mind: it can push to this repository. It is used for exactly
+# one thing, `gh release create`, which writes a tag and a release and nothing
+# else. Nothing here should ever commit to main — the changelog is written by the
+# PR that ships the change, precisely so no bot needs to.
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: design-system-publish
+  cancel-in-progress: false
+
+# Job-wide, not per-step: setup-node's `registry-url` writes an .npmrc whose
+# auth line reads `${NODE_AUTH_TOKEN}` from the environment, and npm fails hard
+# on any config read when a referenced variable is unset — so every npm
+# invocation in this job needs it, the root `npm ci` included.
+env:
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@ansavva"
+
+      # Root install: the root lockfile is the only lockfile there is. No build
+      # needs it — see below — it is here so any pack-time lifecycle script
+      # runs against the tree the committed lockfile pins, and so `ci` fails
+      # loudly if the manifests and lockfile have drifted apart.
+      - name: Install
+        run: npm ci
+
+      # THE RELEASE GATE — the last thing between a malformed tarball and a
+      # version number that can never be reused.
+      #
+      # It belongs here, not only in pr.yml, because of an asymmetry the two
+      # workflows do not share. A merge gate that fails costs one more commit.
+      # This one guards a publish that GitHub Packages will not let anyone take
+      # back: a bad tarball is permanent, and any consumer who installed in the
+      # meantime has it. So the check has to run in the same job as `npm
+      # publish`, immediately before it, where nothing can proceed past a
+      # failure.
+      #
+      # pr.yml runs the identical script so this is found on the PR rather than
+      # here. That copy is the early warning; this copy is the gate. If they
+      # ever have to diverge, this is the one that is load-bearing.
+      #
+      # It reads `npm pack --dry-run`, so it inspects what a consumer would
+      # actually extract — `files`, its negations and any .npmignore all
+      # applied — rather than the working tree every other check runs against.
+      # scripts/check-artifacts.ts owns the reasoning for each invariant.
+      - name: Verify the artifacts before publishing
+        run: npm run artifacts:check
+
+      # ORDER MATTERS: tokens before design-system.
+      #
+      # They are independent artifacts, but a design-system release whose
+      # theme.css was regenerated from a token change is only coherent once
+      # that token version is installable. Publishing tokens first means the
+      # registry never shows the second half of a pair without the first.
+      #
+      # NO BUILD STEP, deliberately — do not "fix" this by adding a bundler.
+      # Both packages publish SOURCE (.ts/.tsx). For the design system that is
+      # load-bearing: each component's `.web.tsx` and `.native.tsx` leaves must
+      # survive into the published artifact so the CONSUMER's bundler picks the
+      # leaf by extension — a web consumer's Vite takes `.web.tsx`, a React Native consumer's Metro
+      # takes `.native.tsx`. A package-time bundle would collapse that choice
+      # before any consumer got to make it.
+      #
+      # Idempotency guard: a publish job that red-Xes on every unrelated push
+      # to main trains people to ignore CI, so an already-published version is
+      # a clean skip, not a failure. The PR gate is what stops a merge landing
+      # here with a stale version in the first place.
+      #
+      # `npm view` exits non-zero when the version does not exist (E404) —
+      # the normal "please publish" case — so the exit code is swallowed and
+      # the decision is made on whether stdout came back empty. stderr is
+      # discarded: on auth trouble npm can echo the request headers.
+      - name: Publish each package whose version is new
+        id: publish
+        run: |
+          set -uo pipefail
+          published=()
+          published_dirs=()
+          skipped=()
+
+          for pkg_dir in packages/tokens packages/design-system; do
+            name="$(node -p "require('./$pkg_dir/package.json').name")"
+            version="$(node -p "require('./$pkg_dir/package.json').version")"
+            echo "::group::$name@$version"
+
+            if [ -n "$(npm view "$name@$version" version 2>/dev/null || true)" ]; then
+              echo "$name@$version is already in the registry — nothing to do."
+              skipped+=("$name@$version")
+            else
+              echo "$name@$version is not in the registry — publishing."
+              ( cd "$pkg_dir" && npm publish ) || exit 1
+              published+=("$name@$version")
+              published_dirs+=("$pkg_dir")
+            fi
+            echo "::endgroup::"
+          done
+
+          # Hand the DIRECTORIES to the release step below, so it tags exactly
+          # what went to the registry — never a version that was only skipped.
+          echo "published_dirs=${published_dirs[*]:-}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Publish"
+            if [ ${#published[@]} -gt 0 ]; then
+              printf -- '- published `%s`\n' "${published[@]}"
+            fi
+            if [ ${#skipped[@]} -gt 0 ]; then
+              printf -- '- skipped (already published) `%s`\n' "${skipped[@]}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A tag and a GitHub Release per published version.
+      #
+      # Until this existed the repo had NO anchor from a version number to a
+      # commit — `git tag` was empty and so was the release list — so "what
+      # changed between 0.12.0 and 0.13.0" could not be asked of git at all, only
+      # reconstructed by reading merge commits and guessing which carried a bump.
+      #
+      # The notes are not generated from commits. They are the entry that already
+      # shipped inside the tarball, printed by the same script that gates it, so
+      # the changelog is the single owner of what a version says and this quotes
+      # it rather than growing a second, drifting description. The PR link under
+      # it is the door to the why — one PR, one responsibility, one version.
+      #
+      # Tags are per package (`tokens-v0.3.1`), because the two version
+      # independently and a bare `v0.3.1` would collide across them.
+      #
+      # Skipped entirely when nothing published, which is most pushes to main.
+      - name: Tag and release each published version
+        if: steps.publish.outputs.published_dirs != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Through the environment rather than interpolated into the script
+          # below. The value is this workflow's own, so nothing hostile can
+          # reach it, but `${{ }}` expands before the shell parses the line —
+          # the habit is worth keeping even where the input is trusted.
+          PUBLISHED_DIRS: ${{ steps.publish.outputs.published_dirs }}
+        run: |
+          set -euo pipefail
+
+          # The pull request this merge came from, for the "why". Resolved from
+          # the commit rather than from the event, so a re-run via
+          # workflow_dispatch finds it too. A direct push to main has no PR — the
+          # notes simply carry no link, rather than failing the release.
+          pr_url="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '.[0].html_url // empty' 2>/dev/null || true)"
+
+          # Split explicitly rather than leaning on the shell to word-split an
+          # unquoted variable. `run:` is bash, which would, but the implicit
+          # version fails silently and weirdly if it ever is not — one iteration
+          # over the whole string, producing a tag built from two paths.
+          read -ra published_dirs <<< "$PUBLISHED_DIRS"
+
+          for pkg_dir in "${published_dirs[@]}"; do
+            name="$(node -p "require('./$pkg_dir/package.json').name")"
+            version="$(node -p "require('./$pkg_dir/package.json').version")"
+            tag="${pkg_dir#packages/}-v$version"
+
+            # Exits non-zero if the entry is missing, so a release can never go
+            # out with empty notes. The PR gate makes that unreachable; this is
+            # the backstop for a direct push to main.
+            notes="$(node scripts/check-changelog.ts --section "$pkg_dir")"
+
+            if [ -n "$pr_url" ]; then
+              notes="$notes"$'\n\n'"---"$'\n\n'"Shipped by $pr_url"
+            fi
+            notes="$notes"$'\n'"Install: \`npm install $name@$version\`"
+
+            # Idempotent, like the publish above: a workflow_dispatch re-run
+            # after a partial failure should finish the job, not red-X on the
+            # half that already succeeded.
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "release $tag already exists — nothing to do."
+            else
+              gh release create "$tag" \
+                --target "$GITHUB_SHA" \
+                --title "$name $version" \
+                --notes "$notes"
+              echo "- released [\`$tag\`]($(gh release view "$tag" --json url --jq .url))" \
+                >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
