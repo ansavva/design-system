@@ -1,0 +1,248 @@
+import * as React from 'react';
+import { within } from 'storybook/test';
+
+/**
+ * Render both leaves of a component side by side.
+ *
+ * This is the workbench's reason to exist. Every component here is two
+ * implementations of one design — a `.web.tsx` leaf of React DOM + Tailwind and
+ * a `.native.tsx` leaf of React Native primitives — and the package's central
+ * claim is that they agree. Until this existed, nothing in the repo could show
+ * whether they did: the tests render one leaf at a time into jsdom and assert
+ * on roles, which is exactly the wrong instrument for "these two look
+ * different".
+ *
+ * Both panes are live and interactive, in one page, under one colour scheme.
+ * Open a Select in each and you are looking at the two things a web consumer
+ * and a React Native consumer actually render.
+ *
+ * A story that renders only ONE leaf is fine when the point is a state rather
+ * than a comparison (an errored Field, a disabled Button) — but a component's
+ * default story should pair them, because divergence is the failure this file
+ * is here to catch.
+ */
+export function LeafPair({
+  web,
+  native,
+  note,
+  minPaneWidth = 320,
+}: {
+  web: React.ReactNode;
+  native: React.ReactNode;
+  /** Optional: say what to look at, when the difference is subtle. */
+  note?: string;
+  /**
+   * How much room this component needs before a pane is worth showing at all.
+   * Below twice this (plus the gap) the panes STACK instead of sitting side by
+   * side.
+   *
+   * A full-width component is the reason this exists. NavBar's bar needs 642px;
+   * at the default 320 the grid keeps two columns down to a 664px canvas, which
+   * gave each pane ~430px and cut the sign-out button off the right of BOTH
+   * panes. Raising the floor for those stories keeps the comparison side by
+   * side on a wide screen and stacks it — still a comparison, just vertical —
+   * when it would otherwise be a lie about how the component looks.
+   *
+   * `min(100%, …)` rather than a bare length so a pane never demands more than
+   * the canvas has and force a horizontal scrollbar on a narrow window.
+   */
+  minPaneWidth?: number;
+}) {
+  return (
+    <div style={styles.wrap}>
+      {note ? <p style={styles.note}>{note}</p> : null}
+      <div
+        style={{
+          ...styles.panes,
+          gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${minPaneWidth}px), 1fr))`,
+        }}
+      >
+        <Pane
+          label="web leaf"
+          sub="React DOM + Tailwind — what a web consumer renders"
+          testId="leaf-pair-web"
+        >
+          {web}
+        </Pane>
+        <Pane
+          label="native leaf"
+          sub="RN primitives via react-native-web — what a React Native consumer renders"
+          testId="leaf-pair-native"
+          isNative
+        >
+          {native}
+        </Pane>
+      </div>
+    </div>
+  );
+}
+
+function Pane({
+  label,
+  sub,
+  testId,
+  isNative = false,
+  children,
+}: {
+  label: string;
+  sub: string;
+  testId: string;
+  /** The native stage is a flex column; see `nativeStage` for why. */
+  isNative?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={styles.pane}>
+      <header style={styles.header}>
+        <span style={styles.label}>{label}</span>
+        <span style={styles.sub}>{sub}</span>
+      </header>
+      {/* The frame is deliberately plain: no background, no card, nothing that
+          could be mistaken for part of the component being shown. */}
+      <div
+        style={isNative ? { ...styles.stage, ...styles.nativeStage } : styles.stage}
+        data-testid={testId}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Pane-scoped queries for play functions.
+ *
+ * Every LeafPair story renders the component TWICE — once per leaf — so a bare
+ * `within(canvasElement).getByRole('button')` finds duplicates and throws.
+ * Scope every query through this instead:
+ *
+ *   const { web, native } = pair(canvasElement);
+ *   await userEvent.click(web.getByRole('button', { name: 'Continue' }));
+ *
+ * The one thing this cannot scope is a portaled overlay: Dialog and
+ * AlertDialog render their surface into `document.body`, outside both panes.
+ * Query those with `screen` from 'storybook/test' — and open them one leaf at
+ * a time, never both at once (two open modals fight over focus and
+ * aria-hidden, and the story's own docs forbid it).
+ *
+ * Rejected alternative: `getAllByRole(...)[0]` / `[1]` — it couples every play
+ * to pane order and degrades silently to the wrong pane in a single-leaf
+ * story. A missing stage here throws with a message that says what happened.
+ */
+export function pair(canvasElement: HTMLElement) {
+  const stage = (id: string) => {
+    const el = canvasElement.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+    if (!el) {
+      throw new Error(
+        `LeafPair stage "${id}" not found — pair() only works in a story that renders through <LeafPair>.`,
+      );
+    }
+    return within(el);
+  };
+  return { web: stage('leaf-pair-web'), native: stage('leaf-pair-native') };
+}
+
+/**
+ * Inline styles, and no Tailwind — deliberately.
+ *
+ * The chrome must not depend on the thing under test. If the workbench frame
+ * were built from the same utilities the `.web` leaves use, a broken Tailwind
+ * pipeline would take the frame down with the component and the failure would
+ * read as "Storybook is broken" instead of "the styles did not generate".
+ * Plain inline styles always render, so a naked component inside an intact
+ * frame points straight at the `@source` line in `workbench/tailwind.css`.
+ */
+const styles: Record<string, React.CSSProperties> = {
+  wrap: {
+    padding: 24,
+    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+  },
+  note: {
+    margin: '0 0 16px',
+    padding: '8px 12px',
+    borderLeft: '3px solid currentColor',
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  panes: {
+    display: 'grid',
+    // gridTemplateColumns is set per render — see `minPaneWidth`.
+    gap: 24,
+    alignItems: 'start',
+  },
+  pane: {
+    border: '1px solid rgba(128,128,128,0.35)',
+    borderRadius: 8,
+    // NEVER `overflow: hidden` here, however tidy it looks.
+    //
+    // It clips anything the component paints outside its own box — an open
+    // Select list, a Dialog, a tooltip. The first draft of this file had it,
+    // and it cropped the open listbox in the 0.7.1 regression story: the exact
+    // overlay whose stacking that story exists to inspect, hidden by the frame
+    // built to inspect it. An overlay spilling past the frame is correct and
+    // informative; a frame that swallows it is a lie.
+    overflow: 'visible',
+  },
+  header: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    padding: '8px 12px',
+    borderBottom: '1px solid rgba(128,128,128,0.25)',
+    background: 'rgba(128,128,128,0.06)',
+    // Matches the pane's radius by hand, since `overflow: hidden` is not
+    // available to do it for us (see above).
+    borderRadius: '7px 7px 0 0',
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+
+  // NO `opacity` on any text in this frame, however much nicer the muted look
+  // is. The a11y gate (`a11y.test: 'error'` in preview.tsx) runs axe over the
+  // whole story, chrome included, and `opacity: 0.6` on 11px grey scored 4.45
+  // against the 4.5:1 threshold — so the frame failed every story and buried
+  // whatever the components were doing.
+  //
+  // Auditing the harness is arguably noise, and the tempting fix is to exclude
+  // this chrome from axe. That is the wrong lever: an exclusion silently covers
+  // real findings the day something moves inside it, whereas a frame that is
+  // simply accessible cannot mask anything. It also keeps the rule honest — a
+  // package that exists to make accessible markup the default should not ship a
+  // workbench that fails its own gate.
+  sub: { fontSize: 11 },
+
+  stage: { padding: 20 },
+
+  /**
+   * The native stage is a FLEX COLUMN whose children start at the top-left.
+   * The web stage stays a plain block, which is what a web consumer's page is.
+   *
+   * WHY, and it is not cosmetic. React Native has no block layout at all —
+   * every RN parent is a flex container, so a leaf that says
+   * `alignSelf: 'flex-start'` shrink-wraps on a device exactly as its author
+   * intended. react-native-web renders each View as a block-level flex
+   * container, and `align-self` on a child of a plain `<div>` is simply
+   * ignored: the View takes `width: auto` and fills the pane instead.
+   *
+   * So this frame was misreporting the native leaf. A Badge stretched edge to
+   * edge where a phone shows a pill; the Calendar card ran 488px wide around a
+   * 280px grid, leaving the dead space on its right that prompted this. Both
+   * were the workbench's block `<div>`, not the components — and the
+   * side-by-side comparison is worthless if the native pane shows something no
+   * consumer would ever see.
+   *
+   * `alignItems: 'stretch'`, NOT `flex-start`, and the difference is the whole
+   * fix. `stretch` is React Native's own default, so this frame now matches
+   * what a consumer's root View gives its children — and a child that says
+   * `alignSelf: 'flex-start'` overrides it, which is exactly how Badge and
+   * Calendar shrink-wrap. `flex-start` here looked right for those two and
+   * broke every leaf that fills its parent: the Input sizes story went from
+   * three full-width fields to three stubs, because a `width: '100%'` child of
+   * a shrink-wrapped View has nothing definite to be 100% OF.
+   */
+  nativeStage: { display: 'flex', flexDirection: 'column', alignItems: 'stretch' },
+};

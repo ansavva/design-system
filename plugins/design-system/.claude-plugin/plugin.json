@@ -1,0 +1,11 @@
+{
+  "name": "design-system",
+  "version": "0.2.0",
+  "description": "Install, theme, and correctly call the components in @ansavva/design-system, on web and on React Native",
+  "author": {
+    "name": "ansavva"
+  },
+  "homepage": "https://github.com/ansavva/design-system",
+  "repository": "https://github.com/ansavva/design-system/tree/main/plugins/design-system",
+  "skills": "./skills/"
+}

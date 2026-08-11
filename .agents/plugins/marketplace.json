@@ -1,0 +1,16 @@
+{
+  "name": "ansavva",
+  "interface": {
+    "displayName": "Andreas Services Design System"
+  },
+  "plugins": [
+    {
+      "name": "design-system",
+      "source": {
+        "source": "local",
+        "path": "./plugins/design-system"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
