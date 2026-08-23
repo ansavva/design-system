@@ -12,6 +12,7 @@
 // (WCAG 4.1.2), and the mount/unmount assertion below could not see it.
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Text, View } from 'react-native';
 import { describe, expect, it } from 'vitest';
 
 import { colors } from '@ansavva/tokens';
@@ -23,7 +24,11 @@ function Notes() {
   return (
     <Collapsible.Root>
       <Collapsible.Trigger>Show case notes</Collapsible.Trigger>
-      <Collapsible.Panel>Flying solo, no prior runs.</Collapsible.Panel>
+      {/* The prose carries its own `Text` — the panel is a container and
+          styles nothing inside it. */}
+      <Collapsible.Panel>
+        <Text>Flying solo, no prior runs.</Text>
+      </Collapsible.Panel>
     </Collapsible.Root>
   );
 }
@@ -64,7 +69,9 @@ describe('Collapsible (native leaf)', () => {
     render(
       <Collapsible.Root disabled>
         <Collapsible.Trigger>Show case notes</Collapsible.Trigger>
-        <Collapsible.Panel>Flying solo, no prior runs.</Collapsible.Panel>
+        <Collapsible.Panel>
+          <Text>Flying solo, no prior runs.</Text>
+        </Collapsible.Panel>
       </Collapsible.Root>,
     );
 
@@ -78,6 +85,30 @@ describe('Collapsible (native leaf)', () => {
     fireEvent.click(trigger);
 
     expect(screen.queryByText('Flying solo, no prior runs.')).not.toBeInTheDocument();
+  });
+
+  it('passes children through without wrapping them in a Text', async () => {
+    // The same regression accordion.native.test.tsx pins, and for the same
+    // reason: the panel wrapped every child in a `Text`, whose
+    // react-native-web output carries `display: inline` and sets the
+    // text-ancestor context — so a nested `Text` came out as a `<span>`
+    // inheriting its colour and a flex layout inside collapsed into inline
+    // flow. A `SPAN` here means a wrapper is back.
+    const user = userEvent.setup();
+    render(
+      <Collapsible.Root>
+        <Collapsible.Trigger>Show case notes</Collapsible.Trigger>
+        <Collapsible.Panel>
+          <View>
+            <Text>Nested in a View</Text>
+          </View>
+        </Collapsible.Panel>
+      </Collapsible.Root>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Show case notes' }));
+
+    expect(screen.getByText('Nested in a View').tagName).toBe('DIV');
   });
 
   // The 0.2.1 regression: every native leaf baked in `colors.light` at module
