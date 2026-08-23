@@ -18,6 +18,38 @@ the PR is why, what was rejected, and how it was verified.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.15.0 — minor
+
+**Widen your range to take this:** `^0.14.x` will not resolve it.
+
+- **On React Native, `Accordion.Panel` and `Collapsible.Panel` no longer wrap
+  their children.** Both used to force every child into a `Text`, which made
+  them the only containers in the package you could not put a `View` inside —
+  no form, no table, no nested layout. They are plain `View`s now, exactly like
+  `Tabs.Panel` already was, and hold whatever you give them.
+- **Wrap bare text in your own `<Text>`.** This is the migration and it is
+  mechanical: `<Accordion.Panel>Some prose</Accordion.Panel>` becomes
+  `<Accordion.Panel><Text>Some prose</Text></Accordion.Panel>`. A panel whose
+  child is a plain string throws *"Text strings must be rendered within a
+  `<Text>` component"* on a device. Same edit for `Collapsible.Panel`.
+- **Style that `Text` yourself to keep the old look.** The panel contributes no
+  text colour or size any more. Both web leaves are unchanged and still mute
+  panel prose by cascade (`text-sm text-muted` on the container); React Native
+  has no cascade, so on native the muted colour is now yours to apply. Wrapping
+  was the only way to close that gap and it cost the container — `Tabs.Panel`
+  made that trade already, and these two now agree with it.
+- **If you worked around the old behaviour, the workaround can go** — content
+  flattened into one `Text`, or lifted out of the panel entirely, can move back
+  in.
+- On react-native-web the old wrapper failed quietly rather than loudly, which
+  is why it lasted: it carries `display: inline` and sets the text-ancestor
+  context, so a flex layout inside a panel collapsed into inline flow and a
+  nested `Text` rendered as a `<span>` inheriting the panel's colour instead of
+  its own. If a panel of yours looked subtly wrong, that was why.
+- No prop, type or export moved, and nothing here reaches a web consumer.
+
+[#2](https://github.com/ansavva/design-system/pull/2)
+
 ## 0.14.1 — patch
 
 - **In a browser, an open `Select` list and an open `DateInput` picker now

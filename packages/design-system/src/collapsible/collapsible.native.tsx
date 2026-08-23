@@ -4,7 +4,8 @@
 // no <button>/region, so the trigger maps onto Pressable +
 // accessibilityState/accessibilityRole, and the collapsed panel is unmounted
 // rather than height-animated (no CSS grid trick in RN) — the same idiom
-// accordion.native.tsx uses for its panel.
+// accordion.native.tsx uses for its panel, which the panel below also matches
+// in taking arbitrary children rather than prose alone.
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewProps } from 'react-native';
 
@@ -64,13 +65,12 @@ const CollapsibleTrigger = ({ children }: { children?: React.ReactNode }) => {
 
 const CollapsiblePanel = ({ children }: { children?: React.ReactNode }) => {
   const { open } = useCollapsibleRootContext('Panel');
-  const c = useNativeColors();
   if (!open) return null; // unmount rather than height-animate — no CSS grid trick in RN
-  return (
-    <View style={styles.panel}>
-      <Text style={[styles.panelText, { color: c.muted }]}>{children}</Text>
-    </View>
-  );
+  // A plain View that passes children through — see accordion.native.tsx's
+  // panel, which carries the full reasoning including the one asymmetry with
+  // the web leaf. A disclosure hides a section of a page, and a section is not
+  // always prose.
+  return <View style={styles.panel}>{children}</View>;
 };
 
 export const Collapsible = {
@@ -87,6 +87,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   triggerLabel: { ...textScale.sm, fontWeight: '500' },
+  // Spacing only — the panel no longer styles its content's text.
   panel: { paddingBottom: spacing.sm },
-  panelText: { ...textScale.sm },
 });
