@@ -18,6 +18,59 @@ the PR is why, what was rejected, and how it was verified.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.16.0 — minor
+
+**Widen your range to take this:** `^0.15.x` will not resolve it.
+
+Media-app wave: everything a consumer needs to build a themed video player and
+a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
+
+- **Focused text controls no longer zoom the page on iOS.** `theme.css` now
+  carries an unlayered `@media (pointer: coarse)` rule holding `input`,
+  `textarea` and `select` at `max(16px, 1em)`. iOS Safari zooms on focus
+  whenever a field is under 16px, and this package's controls are `text-sm`
+  (14px). The rule is keyed on pointer, not viewport width — the condition is
+  touch, not narrow — and the fix is deliberately NOT `maximum-scale=1` in a
+  viewport meta, which disables pinch-zoom and fails WCAG 1.4.4. Desktop is
+  untouched.
+- **New component: `Slider`.** An interactive range — controlled or
+  uncontrolled, `min`/`max`/`step`, `onValueCommit` on release, an optional
+  `buffered` secondary fill for a video seek bar, and a required accessible
+  `label`. One component rather than a compound: the web leaf is a themed
+  native `<input type="range">` whose track and thumb are pseudo-elements, not
+  boxes (the props module holds the argument). The native leaf is a
+  PanResponder drag over core RN primitives — no native-module dependency —
+  with `accessibilityRole="adjustable"` and increment/decrement actions running
+  the same step arithmetic as the web keyboard.
+- **New component: `IconButton`.** A square icon-only button on Button's height
+  scale (`sm` 32dp, `md` 44dp), named by a required `label` (aria-label + title
+  on web, accessibilityLabel on native), with an optional presentational
+  `pressed` for toggles. Intents are Button's three plus `danger` — which lives
+  here and not on Button on purpose: an icon button carries no text, and the
+  glyph rides on `primary-text`, the one foreground measured to clear WCAG
+  1.4.11 on the danger fill in both schemes. Default intent is `ghost`, because
+  an icon button is nearly always an affordance sitting on something else.
+- **`Text` gains `family`** — `'body' | 'heading' | 'mono'`, overriding the
+  family the variant implies. `mono` is the new role below, for ids, keys,
+  durations, byte counts and timestamps. `tabular-nums` is deliberately not
+  bundled in; a monospaced face already advances digits identically.
+- **`Dialog.Root`, `Drawer.Root` and `AlertDialog.Root` take
+  `container?: HTMLElement | null`.** Every portal in that component then
+  targets it instead of `document.body`. The reason is the Fullscreen API:
+  the browser paints only descendants of the fullscreen element, so a dialog
+  portalled to the body is invisible while anything is fullscreen — pass the
+  fullscreen container and it paints. An element, deliberately not a ref (the
+  portal target is read during render); hold it in state. Scroll lock stays on
+  the body either way. `Popover` has no such prop because it never portals —
+  its surface is anchored inline under its Root and follows the trigger into
+  fullscreen already; two tests now pin that.
+- **New theme tokens** (via `@ansavva/tokens` 0.4.0): a 12-step neutral ramp
+  (`--color-neutral-1…12`) with a matching alpha ramp
+  (`--color-neutral-a1…a12`), light and dark; `--font-mono`;
+  `--radius-none` / `--radius-xs`; and motion tokens emitted on real Tailwind
+  namespaces (`duration-fast`, `duration-base`, `ease-standard`). All additive
+  — no existing role moved.
+
 ## 0.15.0 — minor
 
 **Widen your range to take this:** `^0.14.x` will not resolve it.

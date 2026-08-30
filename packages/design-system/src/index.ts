@@ -42,6 +42,8 @@ export type { DrawerSide } from './drawer';
 export { Dropdown } from './dropdown';
 export { Field } from './field';
 export { Footer } from './footer';
+export { IconButton, iconButtonClass } from './icon-button';
+export type { IconButtonIntent, IconButtonSize, IconButtonClassOptions } from './icon-button';
 export { Input } from './input';
 export type { InputType } from './input';
 export { InputGroup } from './input-group';
@@ -56,13 +58,15 @@ export { Select } from './select';
 export type { SelectOption, SelectValue } from './select';
 export { Separator } from './separator';
 export { Sidebar, useSidebar } from './sidebar';
+export { Slider } from './slider';
+export type { SliderOwnProps } from './slider';
 export { Spinner } from './spinner';
 export type { SpinnerSize } from './spinner';
 export { Switch } from './switch';
 export { Table } from './table';
 export { Tabs } from './tabs';
 export { Text } from './text';
-export type { TextTone, TextVariant, TextWeight } from './text';
+export type { TextFamily, TextTone, TextVariant, TextWeight } from './text';
 export { Textarea } from './textarea';
 // `useToast` is the one imperative handle in the package: a toast is asked for
 // from an event handler far from any JSX, so a hook is the only ergonomic API
