@@ -43,4 +43,47 @@ describe('Text', () => {
     expect(el).toHaveClass('text-primary');
     expect(el).toHaveClass('font-semibold');
   });
+
+  it('overrides the family the variant implies, keeping its size and role', () => {
+    render(
+      <Text variant="heading" family="mono">
+        R-114-8829
+      </Text>,
+    );
+
+    const el = screen.getByRole('heading', { name: 'R-114-8829' });
+    expect(el).toHaveClass('font-mono');
+    // The family is the ONLY thing that moved: still heading-sized, still a
+    // heading in the outline.
+    expect(el).not.toHaveClass('font-heading');
+    expect(el).toHaveClass('text-2xl');
+  });
+
+  it("uses the variant's own family when none is given", () => {
+    render(
+      <Text variant="title" data-testid="title">
+        Jump solutions
+      </Text>,
+    );
+    render(
+      <Text variant="body" data-testid="body">
+        Nav computer.
+      </Text>,
+    );
+
+    expect(screen.getByTestId('title')).toHaveClass('font-heading');
+    expect(screen.getByTestId('body')).toHaveClass('font-body');
+  });
+
+  it("can put body copy's family on a heading-sized run", () => {
+    render(
+      <Text as="span" variant="display" family="body" data-testid="text">
+        Big, but not serif
+      </Text>,
+    );
+
+    const el = screen.getByTestId('text');
+    expect(el).toHaveClass('font-body');
+    expect(el).not.toHaveClass('font-heading');
+  });
 });

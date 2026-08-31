@@ -6,15 +6,20 @@
 // `isHeadingVariant` exists to keep in one place.
 //
 // Colors resolve at render time from useNativeColors(); StyleSheet.create
-// holds only the scheme-independent size and family blocks.
+// holds the scheme-independent size blocks alone. The FAMILY is resolved per
+// render too — not because it follows the scheme (it does not) but because
+// `family` overrides what the variant implies, and a StyleSheet block cannot
+// be un-set from the outside.
 import * as React from 'react';
 import { StyleSheet, Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { useNativeColors } from '../lib/native-theme';
-import { headingFamily, textScale } from '../lib/native-typography';
+import { headingFamily, monoFamily, textScale } from '../lib/native-typography';
 import {
   isHeadingVariant,
+  variantFamily,
   variantWeight,
+  type TextFamily,
   type TextTone,
   type TextVariant,
   type TextWeight,
@@ -24,6 +29,8 @@ export interface TextProps extends RNTextProps {
   variant?: TextVariant | undefined;
   tone?: TextTone | undefined;
   weight?: TextWeight | undefined;
+  /** Overrides the family the variant implies. See `familyFont` below. */
+  family?: TextFamily | undefined;
   children?: React.ReactNode;
 }
 
@@ -33,10 +40,31 @@ const weightValue: Record<TextWeight, '400' | '500' | '600'> = {
   semibold: '600',
 };
 
+/**
+ * The three families, resolved through the seam that maps a role onto each
+ * platform's own face — the web leaf's `font-heading`/`font-body`/`font-mono`
+ * in this leaf's dialect.
+ *
+ * `body` is `undefined` ON PURPOSE, and it is not a gap: React Native has no
+ * `font-body` to name, so body copy has always rendered the platform's own
+ * sans here — which is what `--font-body`'s stack asks for anyway. Setting one
+ * would change every existing native surface, which giving `Text` a family
+ * control is not licence to do. See native-typography.native.ts.
+ *
+ * Module level is safe for all three: `Platform.select` has already resolved,
+ * and a family — unlike a colour — does not follow the colour scheme.
+ */
+const familyFont: Record<TextFamily, string | undefined> = {
+  heading: headingFamily,
+  body: undefined,
+  mono: monoFamily,
+};
+
 export const Text = ({
   variant = 'body',
   tone = 'ink',
   weight,
+  family,
   style,
   children,
   ...props
@@ -57,7 +85,15 @@ export const Text = ({
       {...(isHeadingVariant(variant) ? ({ accessibilityRole: 'header' } as const) : {})}
       style={[
         styles[variant],
-        { color: toneColor[tone], fontWeight: weightValue[weight ?? variantWeight[variant]] },
+        {
+          color: toneColor[tone],
+          fontWeight: weightValue[weight ?? variantWeight[variant]],
+          // Resolved here rather than held in the StyleSheet block, so an
+          // override REPLACES the variant's family instead of layering over
+          // it — the same reason the web leaf resolves it before building its
+          // class list.
+          fontFamily: familyFont[family ?? variantFamily[variant]],
+        },
         style,
       ]}
       {...props}
@@ -72,10 +108,12 @@ export const Text = ({
 // line heights follow the same ~1.4 ratio the scale uses rather than
 // react-native-web's `line-height: normal` (~1.2), which is what made every
 // native text block run shorter than its web twin — see native-typography.
+// Size and line height only — the FAMILY moved out to `familyFont`, resolved
+// per render so `family` can override what the variant implies.
 const styles = StyleSheet.create({
-  display: { fontFamily: headingFamily, fontSize: 30, lineHeight: 36 },
-  heading: { fontFamily: headingFamily, fontSize: 24, lineHeight: 32 },
-  title: { fontFamily: headingFamily, ...textScale.lg },
+  display: { fontSize: 30, lineHeight: 36 },
+  heading: { fontSize: 24, lineHeight: 32 },
+  title: { ...textScale.lg },
   body: { ...textScale.sm },
   caption: { ...textScale.xs },
 });

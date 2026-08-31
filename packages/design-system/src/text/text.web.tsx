@@ -10,11 +10,14 @@ import * as React from 'react';
 
 import { cn } from '../lib/cn';
 import {
+  familyStyles,
   isHeadingVariant,
   toneStyles,
+  variantFamily,
   variantStyles,
   variantWeight,
   weightStyles,
+  type TextFamily,
   type TextTone,
   type TextVariant,
   type TextWeight,
@@ -30,6 +33,13 @@ export interface TextProps extends React.ComponentPropsWithoutRef<'p'> {
   tone?: TextTone | undefined;
   /** Defaults to the variant's own weight (`variantWeight`). */
   weight?: TextWeight | undefined;
+  /**
+   * Overrides the family the variant implies (`variantFamily`) — a heading in
+   * the body face, or a run of `mono` for an id, a hash or a timestamp.
+   * Changes the FACE only: size, weight and the heading role are the
+   * variant's, and stay the variant's.
+   */
+  family?: TextFamily | undefined;
 }
 
 /**
@@ -50,12 +60,17 @@ const variantElement: Record<TextVariant, TextElement> = {
 };
 
 export const Text = React.forwardRef<HTMLElement, TextProps>(
-  ({ as, variant = 'body', tone = 'ink', weight, className, children, ...props }, ref) =>
+  ({ as, variant = 'body', tone = 'ink', weight, family, className, children, ...props }, ref) =>
     React.createElement(
       as ?? variantElement[variant],
       {
         ref,
         className: cn(
+          // Resolved, not appended: `font-heading` and `font-mono` are not one
+          // twMerge conflict group, so emitting both would leave the winner to
+          // stylesheet order. text.props.ts's `variantFamily` note has the
+          // measurement.
+          familyStyles[family ?? variantFamily[variant]],
           variantStyles[variant],
           toneStyles[tone],
           weightStyles[weight ?? variantWeight[variant]],

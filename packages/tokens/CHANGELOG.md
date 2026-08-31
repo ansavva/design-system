@@ -16,6 +16,36 @@ the PR is why, what was rejected, and how it was verified.
 > `0.1.x` is absent because it was never published — the package was
 > `private: true` while every consumer resolved it from the same workspace.
 
+## 0.4.0 — minor
+
+**Widen your range to take this:** `^0.3.x` will not resolve it.
+
+All additive — no existing token changed value.
+
+- **New `ramps` group: a 12-step neutral ramp and a 12-step alpha ramp**
+  (`neutral1`–`neutral12`, `neutralA1`–`neutralA12`), light and dark, taken
+  from Radix Colors' gray scales. Emitted as `--color-neutral-*` /
+  `--color-neutral-a*` custom properties in both schemes, and as per-scheme
+  members of `ColorScheme` for React Native, so `ThemeProvider` can override
+  them through the seam it already has. They are steps, not roles — the
+  generated doc comments say to prefer a semantic role where one says what you
+  mean.
+- **New `fonts.mono`** — the system monospace stack, emitted as `--font-mono`
+  (which intentionally re-declares Tailwind's own default of the same value)
+  and as a typed member for React Native; the design-system's
+  `native-typography` maps it to Menlo on iOS and `monospace` on Android.
+- **New `radii.none` (0) and `radii.xs` (2 / 0.125rem)**, ahead of `sm`.
+- **New `motion` group** — `durationFast` (120ms), `durationBase` (200ms),
+  `easingStandard` (`cubic-bezier(0.2, 0, 0, 1)`). Durations emit as
+  `--transition-duration-*`, the namespace this Tailwind actually resolves
+  `duration-*` utilities from; the easing emits as `--ease-standard`.
+- **The generator now emits a mobile zoom guard** into the design-system's
+  `theme.css`: `@media (pointer: coarse) { input, textarea, select {
+  font-size: max(16px, 1em); } }`, unlayered so it beats the utility layer.
+  It lives in the generator, not `tokens.json`, which stays pure data. It also
+  now refuses two colour tokens sharing one flat name, and `radii` gained
+  calc-safe `0px` rendering.
+
 ## 0.3.2 — patch
 
 - **No token value changed, and nothing this package exports changed.** The
