@@ -8,7 +8,7 @@
 // reason toggle.native.tsx measured against this repo's pinned
 // react-native-web: it does not flatten `accessibilityState` into any `aria-*`
 // attribute, so the state exists only if the leaf also forwards the ARIA prop.
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -74,5 +74,36 @@ describe('Chip (native leaf)', () => {
       borderColor: rgb(colors.light.primary),
       backgroundColor: rgb(colors.light.primary),
     });
+  });
+
+  // A React Native parent defaults to `alignItems: 'stretch'`, so a chip in an
+  // ordinary column View stretched edge to edge while the web leaf — which
+  // carries `inline-flex shrink-0` — hugged its label. Same family as the
+  // 0.12.2 Popover/Tooltip collapse: a native leaf declaring nothing on an
+  // axis and inheriting the parent's answer.
+  it('shrink-wraps rather than filling its parent', () => {
+    setPrefersColorScheme('light');
+    render(<Chip testID="chip">Drafts</Chip>);
+
+    expect(screen.getByTestId('chip')).toHaveStyle({ alignSelf: 'flex-start' });
+  });
+
+  // lib/native-focus.native.ts exists because an unringed native control falls
+  // through to Chrome's blue outline under react-native-web. The migration that
+  // introduced it reached the text inputs only, so every Pressable — this one
+  // included — kept the browser's ring while its web leaf drew the package's.
+  it('draws the design system’s OWN focus ring, not the browser default', () => {
+    setPrefersColorScheme('light');
+    render(<Chip testID="chip">Drafts</Chip>);
+
+    const chip = screen.getByTestId('chip');
+    expect(getComputedStyle(chip).outlineWidth).not.toBe('2px');
+
+    act(() => chip.focus());
+
+    const style = getComputedStyle(chip);
+    expect(style.outlineWidth).toBe('2px');
+    expect(style.outlineOffset).toBe('2px');
+    expect(rgb(style.outlineColor)).toEqual(rgb(colors.light.accent));
   });
 });
