@@ -39,6 +39,12 @@
   --color-success: #2e7d5b;
   --color-warning: #b8863b;
   --color-danger: #b3352e;
+  --color-danger-text: #ffffff;
+  --color-overlay-ink: #ffffff;
+  --color-overlay-muted: rgb(255 255 255 / 0.702);
+  --color-overlay-scrim: #000000;
+  --color-overlay-hover: rgb(255 255 255 / 0.2);
+  --color-overlay-active: rgb(255 255 255 / 0.302);
 
   /* Derived states. Overriding the base semantic moves these too. */
   --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, black 12%);
@@ -159,6 +165,12 @@
   --color-success: #39b17e;
   --color-warning: #d2a857;
   --color-danger: #e27f79;
+  --color-danger-text: #071b31;
+  --color-overlay-ink: #ffffff;
+  --color-overlay-muted: rgb(255 255 255 / 0.702);
+  --color-overlay-scrim: #000000;
+  --color-overlay-hover: rgb(255 255 255 / 0.2);
+  --color-overlay-active: rgb(255 255 255 / 0.302);
 
   --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, white 12%);
   --color-primary-active: color-mix(in srgb, var(--color-primary) 84%, black 16%);

@@ -21,6 +21,20 @@ export interface IconButtonProps
 
 const sizeBox: Record<IconButtonSize, number> = { sm: 32, md: 44 };
 
+/**
+ * The 44dp hit area, in this platform's dialect.
+ *
+ * The web leaf grows a centred `::after` under `@media (pointer: coarse)`;
+ * RN has `hitSlop`, which does the same job directly — it extends the touch
+ * area without touching layout or paint. 6dp on each side takes `sm`'s 32 to
+ * 44. There is no pointer query because there is no pointer to query: a
+ * React Native surface is a touchscreen.
+ *
+ * `md` is 44 already, so it gets none — the same reason the web leaf applies
+ * its overlay to `sm` alone.
+ */
+const sizeHitSlop: Record<IconButtonSize, number> = { sm: 6, md: 0 };
+
 // Font size WITHOUT a line height, unlike button.native.tsx's label. This is a
 // glyph pinned inside a fixed square, which is the case native-typography.ts
 // carves out by name (the Checkbox tick, the Select chevron, the Avatar
@@ -46,18 +60,25 @@ export function IconButton({
     secondary: c.surfaceAlt,
     ghost: 'transparent',
     danger: c.danger,
+    // Nothing at rest — the glyph and the media, and no box between them.
+    overlay: 'transparent',
   };
   const intentFg: Record<IconButtonIntent, string> = {
     primary: c.primaryText,
     secondary: c.ink,
     ghost: c.ink,
-    danger: c.primaryText,
+    // `dangerText` rather than `primaryText`. The two hold identical values, so
+    // no pixel moves; what changes is that a brand overriding its primary
+    // foreground no longer silently moves the glyph on its danger fill.
+    danger: c.dangerText,
+    overlay: c.overlayInk,
   };
   const pressedBg: Record<IconButtonIntent, string> = {
     primary: c.primaryActive,
     secondary: c.line,
     ghost: c.line,
     danger: c.dangerHover,
+    overlay: c.overlayActive,
   };
 
   // Pressed is reported BOTH ways, the split toggle.native.tsx measured against
@@ -77,6 +98,7 @@ export function IconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      hitSlop={sizeHitSlop[size]}
       {...toggleProps}
       disabled={disabled ?? undefined}
       style={(state) => [

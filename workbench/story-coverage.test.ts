@@ -60,6 +60,7 @@ const INTERACTIVE = [
   'calendar',
   'checkbox',
   'checkbox-group',
+  'chip',
   'collapsible',
   'combobox',
   'date-input',

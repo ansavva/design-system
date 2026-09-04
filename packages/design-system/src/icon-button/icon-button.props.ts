@@ -2,45 +2,57 @@
 //
 // IconButton is Button with the label taken OUT of the box and moved into the
 // accessibility tree: a square target holding one glyph, named by a required
-// `label`. What it means by `primary`/`secondary`/`ghost` is IMPORTED from
-// button.props rather than restated, so a change of heart about what `ghost`
-// looks like moves both controls at once and neither can drift into a second
-// opinion.
+// `label`. What every intent MEANS is IMPORTED from button.props rather than
+// restated, so a change of heart about what `ghost` looks like moves both
+// controls at once and neither can drift into a second opinion.
+//
+// A BARE <button> HOLDING AN ICON IS A CONSUMER BUG, and this is the component
+// that exists so it never has to be one. Three things an icon-only control
+// needs, and that a hand-rolled one has to remember every time: an accessible
+// name (here it is a REQUIRED prop, so a nameless one does not compile), a
+// visible name for a pointer user (`title`, mirrored from the same string, so
+// the two cannot disagree), and a hit area a finger can land on
+// (`coarseTouchTarget`, below). Every one of those was previously supplied by
+// hand at a call site, by a consumer that had grown a lint rule to keep them
+// there — which is a good sign the component owed them.
 import type * as React from 'react';
 
 import { intentStyles, type ButtonIntent } from '../button/button.props';
 import { cn } from '../lib/cn';
-import { disabledStyles, focusRing } from '../lib/styles';
+import { coarseTouchTarget, disabledStyles, focusRing } from '../lib/styles';
 
 /**
- * Button's three weights of emphasis, plus the one it does not have.
+ * Button's intents, verbatim — including `danger`.
  *
- * WHY `danger` LIVES HERE AND NOT ON BUTTON. `button.props.ts` records the
- * reason it ships no `danger` intent: the semantic token set has no
- * `danger-text` pair, so nothing measured says a LABEL is readable on a danger
- * fill. That reason is about text, and this control has none — its accessible
- * name is `label`, read from the accessibility tree, and the pixels inside the
- * box are a glyph.
+ * THIS TYPE USED TO ADD `danger` AND NOW ONLY ALIASES. The reason it was ever
+ * separate is recorded in `button.props.ts`, which then had no `danger`
+ * intent: the token set carried no measured foreground for a LABEL on a danger
+ * fill, and this control has no label — the pixels inside its box are a glyph
+ * and its accessible name is read from the accessibility tree. So `danger`
+ * lived here, and widening `ButtonIntent` was refused on the grounds that it
+ * would make `<Button intent="danger">` expressible before anything measured
+ * said it was readable.
  *
- * Measured anyway, because the glyph still has to be visible. `primary-text`
- * is the package's on-fill foreground and it already FLIPS with the scheme
- * (`#FFFFFF` light, `#071B31` dark), which is exactly what a fill that also
- * flips needs — light `danger` is a dark red, dark `danger` a light one:
+ * `tokens` 0.5.0 measured it and shipped `danger-text`, so Button carries the
+ * intent now and `danger` is no longer what makes these two sets differ.
  *
- *   primary-text on danger   light 5.8:1   dark 6.2:1   ✅
- *   white       on danger    light 5.8:1   dark 2.8:1   ❌ dark
+ * WHAT MAKES THEM DIFFER NOW IS `overlay`, and it is the same argument with the
+ * pieces swapped. An overlay control is drawn on top of a PHOTOGRAPH — a
+ * player's transport, a delete affordance on a frame, a filmstrip's arrows —
+ * and the surface roles cannot express that: `bg-surface-alt` over a dark frame
+ * is invisible and over a bright one is a grey box. The `overlay-*` roles can,
+ * because they are the one role set that does not follow the colour scheme (a
+ * photograph is not the app's canvas — `tokens.json` argues it out).
  *
- * The second row is why this pair is not "obviously white": a hard-coded white
- * glyph fails WCAG 1.4.11's 3:1 non-text floor on the dark scheme's lifted red,
- * and would have looked correct to anyone checking only the light canvas.
- *
- * Widening `ButtonIntent` itself would have been the smaller diff and the
- * wrong one: `ButtonIntent` and `buttonClass` are Button's PUBLIC API, so a
- * fourth member makes `<Button intent="danger">` — a text-bearing control —
- * expressible, which is the thing button.props.ts argues against and this
- * component has no standing to overrule.
+ * It stays off Button for the reason `danger` once stayed off it: legibility
+ * over arbitrary media is a claim about a glyph, and a RUN OF TEXT on a
+ * photograph is a different and much weaker one. `overlay-ink` is measured
+ * against `overlay-scrim`, which the caller has to actually lay down; a word
+ * floating on an unscrimmed frame is legible over some pixels and not others,
+ * and no fill row fixes that. A caller wanting a labelled control over media
+ * puts the scrim down itself and reaches for `buttonClass`.
  */
-export type IconButtonIntent = ButtonIntent | 'danger';
+export type IconButtonIntent = ButtonIntent | 'overlay';
 
 /**
  * Square boxes on Button's own height scale: 32dp and 44dp.
@@ -54,17 +66,21 @@ export type IconButtonIntent = ButtonIntent | 'danger';
 export type IconButtonSize = 'sm' | 'md';
 
 /**
- * The fills. Button's three rows verbatim (imported, not copied), plus danger.
+ * The fills — Button's map outright, no longer a copy with a row added.
  *
- * `active:bg-danger-hover` rather than a `danger-active`: the token set derives
- * one hovered danger and no pressed one, and inventing a colour here would be
- * exactly the hard-coded value the semantic layer exists to prevent. The
- * pressed feel comes from `pressedStyles` for a toggle, and from the browser's
- * own activation for a one-shot press.
+ * The `danger` row moved to `button.props.ts` when Button gained the intent,
+ * which is what makes a text button and an icon button that destroy the same
+ * thing read as one control BY CONSTRUCTION rather than by two files agreeing.
+ * Re-exported under this name because that is what this component's own class
+ * builder and stories call it.
  */
 export const iconIntentStyles: Record<IconButtonIntent, string> = {
   ...intentStyles,
-  danger: 'bg-danger text-primary-text hover:bg-danger-hover active:bg-danger-hover',
+  // No fill at rest, like `ghost` — a control over media should be the glyph
+  // and nothing else until it is touched. What differs from `ghost` is every
+  // colour: these compose over a frame this package cannot see, which is why
+  // the hover and active fills are ALPHA whites rather than a solid step.
+  overlay: 'bg-transparent text-overlay-ink hover:bg-overlay-hover active:bg-overlay-active',
 };
 
 /**
@@ -77,12 +93,19 @@ export const iconIntentStyles: Record<IconButtonIntent, string> = {
  * row that matters on a dark media surface, where `line` is a translucent white
  * — the pressed state reads as "on" against the media instead of against a
  * background this component cannot see.
+ *
+ * `danger` repeats its own hover colour: the token set derives one hovered
+ * danger and no pressed one, and inventing a fourth red here is exactly the
+ * hard-coded value the semantic layer exists to prevent.
  */
 export const pressedStyles: Record<IconButtonIntent, string> = {
   primary: 'bg-primary-active',
   secondary: 'bg-line',
   ghost: 'bg-line',
   danger: 'bg-danger-hover',
+  // The same alpha the intent uses when pressed, held rather than flashed —
+  // and alpha rather than a solid for the same reason as the row above.
+  overlay: 'bg-overlay-active',
 };
 
 /**
@@ -177,6 +200,10 @@ export function iconButtonClass({
     disabledStyles,
     iconIntentStyles[intent],
     iconSizeStyles[size],
+    // `sm` ONLY. `md` is 44dp already — the floor this exists to reach — so
+    // giving it the overlay too would buy nothing and would put a pseudo-
+    // element the size of the button on every icon control in the package.
+    size === 'sm' && coarseTouchTarget,
     pressed === true && pressedStyles[intent],
     className,
   );

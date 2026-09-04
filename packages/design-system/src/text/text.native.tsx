@@ -3,7 +3,12 @@
 // RN has one text primitive and no element names, so `as` has no counterpart
 // here: what the web leaf expresses by choosing `<h3>` vs `<p>`, this leaf
 // expresses with `accessibilityRole="header"` — which is exactly the split
-// `isHeadingVariant` exists to keep in one place.
+// `isHeadingVariant` exists to keep in one place. `inline` is web-only for the
+// same reason: a <Text> inside a <View> is already a block-level flex item
+// here and one nested inside another <Text> is already inline, so the caller
+// says it by where the element goes. `truncate` DOES cross — RN elides with
+// `numberOfLines` rather than with CSS, which is exactly why it had to become
+// a prop instead of a documented class string.
 //
 // Colors resolve at render time from useNativeColors(); StyleSheet.create
 // holds the scheme-independent size blocks alone. The FAMILY is resolved per
@@ -31,6 +36,15 @@ export interface TextProps extends RNTextProps {
   weight?: TextWeight | undefined;
   /** Overrides the family the variant implies. See `familyFont` below. */
   family?: TextFamily | undefined;
+  /**
+   * Keep the text on one line and elide the overflow — `numberOfLines={1}`,
+   * which is how RN spells what the web leaf spells `truncate`. RN's default
+   * `ellipsizeMode` is already `tail`, so the ellipsis needs no second prop.
+   *
+   * An explicit `numberOfLines` still wins: it is spread after this, so a
+   * caller wanting two lines and an ellipsis says so directly.
+   */
+  truncate?: boolean | undefined;
   children?: React.ReactNode;
 }
 
@@ -65,6 +79,7 @@ export const Text = ({
   tone = 'ink',
   weight,
   family,
+  truncate,
   style,
   children,
   ...props
@@ -83,6 +98,8 @@ export const Text = ({
       // react-native-web has to reason about, and the roles differ per variant
       // rather than per component here.
       {...(isHeadingVariant(variant) ? ({ accessibilityRole: 'header' } as const) : {})}
+      // Before `{...props}` on purpose — see the prop's doc comment.
+      {...(truncate === true ? ({ numberOfLines: 1 } as const) : {})}
       style={[
         styles[variant],
         {

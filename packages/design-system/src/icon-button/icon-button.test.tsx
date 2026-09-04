@@ -91,7 +91,10 @@ describe('IconButton', () => {
 
     const button = screen.getByRole('button', { name: 'Delete' });
     expect(button).toHaveClass('bg-danger');
-    expect(button).toHaveClass('text-primary-text');
+    // `danger-text`, not `primary-text`: the two hold identical values, so no
+    // pixel moves, but a brand overriding its primary foreground no longer
+    // silently moves the glyph on its danger fill. tokens 0.5.0 measured it.
+    expect(button).toHaveClass('text-danger-text');
     // Square: the same box on both axes, on Button's own height scale.
     expect(button).toHaveClass('h-8');
     expect(button).toHaveClass('w-8');

@@ -16,6 +16,40 @@ the PR is why, what was rejected, and how it was verified.
 > `0.1.x` is absent because it was never published — the package was
 > `private: true` while every consumer resolved it from the same workspace.
 
+## 0.5.0 — minor
+
+**Widen your range to take this:** `^0.4.x` will not resolve it.
+
+All additive — no existing token changed value.
+
+- **New `semantic.dangerText`** — the foreground that sits on top of `danger`,
+  emitted as `--color-danger-text` and as a `ColorScheme` member. Measured
+  against this file's own values at 6.1:1 light (white on `#B3352E`) and 6.2:1
+  dark (`#071B31` on `#E27F79`), both clear of the 4.5:1 WCAG AA floor for body
+  text — which is what lets a destructive button carry a LABEL and not only a
+  glyph. It holds `primaryText`'s values, so nothing you have rendered moves;
+  what changes is that overriding your primary foreground no longer silently
+  moves the foreground on your danger fill too.
+- **New overlay role set: `overlayInk`, `overlayMuted`, `overlayScrim`,
+  `overlayHover`, `overlayActive`** — for controls drawn on top of MEDIA (a
+  player's transport, a delete affordance on a frame, a filmstrip's arrows),
+  where the surface roles cannot work: `surfaceAlt` over a dark frame is
+  invisible and over a bright one is a grey box. Emitted as
+  `--color-overlay-*` and as `ColorScheme` members, and overridable through the
+  same seams as every other role.
+
+  **These declare the same value in both schemes, deliberately.** They describe
+  a photograph rather than your canvas, and a photograph does not follow the OS
+  colour scheme — chrome over media is light-on-dark in a light app exactly as
+  in a dark one. If you were mapping your own chrome onto the neutral ramp per
+  scheme, these replace it; `overlayScrim` is opaque so you apply the alpha you
+  want at the call site (`bg-overlay-scrim/80`, a gradient stop).
+- **New palette entries `whiteAlpha30` and `whiteAlpha70`**, beside the
+  existing `whiteAlpha20`, feeding the alpha overlay roles. As ever, palette
+  names are emitted nowhere — go through the semantic layer.
+
+[#13](https://github.com/ansavva/design-system/pull/13)
+
 ## 0.4.0 — minor
 
 **Widen your range to take this:** `^0.3.x` will not resolve it.
