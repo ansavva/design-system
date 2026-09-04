@@ -75,6 +75,24 @@ export interface ColorScheme {
   /** Error/destructive state. The dark scheme lifts to a brighter red: the light value scored 2.9:1 on the dark canvas, below the 4.5:1 WCAG AA floor for body text — and Field.Error renders in it. */
   readonly danger: string;
 
+  /** Text/icon color that sits on top of [danger]. Measured against this file's own values: 6.1:1 light (white on #B3352E) and 6.2:1 dark (#071B31 on #E27F79), both clear of the 4.5:1 WCAG AA floor for body text, so a destructive button may carry a LABEL and not only a glyph. The values are [primaryText]'s, which is what IconButton's danger glyph already rode on — this role exists so that stays true by definition rather than by coincidence, and so a brand can move the foreground on its danger fill without dragging its primary fill's along. Note the row this replaces: a hard-coded white fails at 2.8:1 on the dark scheme's lifted red, which is why the foreground has to flip with the scheme. */
+  readonly dangerText: string;
+
+  /** Primary text/icon color for controls drawn OVER media — a player transport, a delete affordance on a frame, a filmstrip arrow. 21:1 on [overlayScrim], and 17.4:1 with that scrim at 80% over mid-grey media. Same value in both schemes; see the note above. */
+  readonly overlayInk: string;
+
+  /** De-emphasized text/icons over media — a timecode, a duration badge. 9.9:1 on [overlayScrim], 9.0:1 with that scrim at 80% over mid-grey media. Same value in both schemes. */
+  readonly overlayMuted: string;
+
+  /** The darkening laid UNDER overlay controls so they are legible on media the app cannot see. Opaque on purpose: a caller applies the alpha it wants at the call site (`bg-overlay-scrim/80`, a gradient stop), because how much scrim a control needs is a property of that control, not of the theme. Same value in both schemes. */
+  readonly overlayScrim: string;
+
+  /** Hover fill for a control over media. An ALPHA white rather than a solid, because it composes over a frame this package has never seen — a solid would assume a background and paint a grey box on a bright photograph. Same value in both schemes. */
+  readonly overlayHover: string;
+
+  /** Pressed fill for a control over media — one step up from [overlayHover], and alpha for the same reason. Same value in both schemes. */
+  readonly overlayActive: string;
+
   /** Hovered [primary]. */
   readonly primaryHover: string;
 
@@ -180,6 +198,12 @@ export const colors = {
     success: '#2E7D5B',
     warning: '#B8863B',
     danger: '#B3352E',
+    dangerText: '#FFFFFF',
+    overlayInk: '#FFFFFF',
+    overlayMuted: '#FFFFFFB3',
+    overlayScrim: '#000000',
+    overlayHover: '#FFFFFF33',
+    overlayActive: '#FFFFFF4D',
     primaryHover: '#0A2541',
     primaryActive: '#09223B',
     accentHover: '#A27634',
@@ -225,6 +249,12 @@ export const colors = {
     success: '#39B17E',
     warning: '#D2A857',
     danger: '#E27F79',
+    dangerText: '#071B31',
+    overlayInk: '#FFFFFF',
+    overlayMuted: '#FFFFFFB3',
+    overlayScrim: '#000000',
+    overlayHover: '#FFFFFF33',
+    overlayActive: '#FFFFFF4D',
     primaryHover: '#D7B26B',
     primaryActive: '#B08D49',
     accentHover: '#D7B26B',

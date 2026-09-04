@@ -84,4 +84,28 @@ describe('Text (native leaf)', () => {
     expect(style.fontFamily).not.toBe(monoFamily);
     expect(style.fontFamily).toContain('sans-serif');
   });
+
+  // `truncate` is the one of the two new props that CROSSES: RN elides with
+  // `numberOfLines`, not with CSS, so a caller who had reached for
+  // `className="truncate"` had written something that did nothing here. The
+  // web leaf's counterpart is asserted in text.test.tsx.
+  it('elides with numberOfLines when asked to truncate', () => {
+    render(
+      <Text truncate testID="text">
+        A very long run of text that has to elide
+      </Text>,
+    );
+
+    // react-native-web compiles `numberOfLines={1}` into its own atomic
+    // classes rather than an inline style. The hash half of each name is an
+    // implementation detail; the PROPERTY half is what the library guarantees,
+    // so that is what this reads — `r-textOverflow-*` is the ellipsis.
+    expect(screen.getByTestId('text').className).toContain('r-textOverflow');
+  });
+
+  it('does not elide by default', () => {
+    render(<Text testID="text">Wraps as many lines as it needs</Text>);
+
+    expect(screen.getByTestId('text').className).not.toContain('r-textOverflow');
+  });
 });

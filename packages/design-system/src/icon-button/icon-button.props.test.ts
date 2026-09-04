@@ -32,16 +32,39 @@ describe('the icon button maps', () => {
     }
   });
 
-  it("reuses Button's rows for the three shared intents rather than copying them", () => {
-    for (const intent of ['primary', 'secondary', 'ghost'] as const) {
+  it("reuses Button's rows verbatim rather than copying them", () => {
+    for (const intent of ['primary', 'secondary', 'ghost', 'danger'] as const) {
       expect(iconIntentStyles[intent]).toBe(intentStyles[intent]);
     }
   });
 
-  it('adds danger without touching Button — the fill and its derived hover', () => {
+  // `danger` used to be added HERE, on the grounds that the token set had no
+  // measured foreground for a label on a danger fill and this control has no
+  // label. tokens 0.5.0 measured one (`danger-text`), Button took the intent,
+  // and the two controls share one row again — which is what makes a text
+  // button and an icon button that destroy the same thing read as one control.
+  it('takes danger from Button, on the shared danger-text foreground', () => {
     expect(iconIntentStyles.danger).toContain('bg-danger');
+    expect(iconIntentStyles.danger).toContain('text-danger-text');
     expect(iconIntentStyles.danger).toContain('hover:bg-danger-hover');
-    expect(intentStyles).not.toHaveProperty('danger');
+    expect(intentStyles).toHaveProperty('danger');
+  });
+
+  // The one intent that is NOT Button's, and the reason this type still
+  // diverges: controls drawn over media, which the surface roles cannot
+  // express. See icon-button.props.ts.
+  it('adds overlay, which Button deliberately does not have', () => {
+    expect(iconIntentStyles.overlay).toContain('text-overlay-ink');
+    expect(iconIntentStyles.overlay).toContain('hover:bg-overlay-hover');
+    expect(iconIntentStyles.overlay).toContain('active:bg-overlay-active');
+    expect(intentStyles).not.toHaveProperty('overlay');
+  });
+
+  // 32dp is under the WCAG 2.5.5 floor, so `sm` — and only `sm` — carries the
+  // coarse-pointer overlay that grows the TARGET without growing the box.
+  it('gives sm a 44px hit area on a coarse pointer, and md none', () => {
+    expect(iconButtonClass({ size: 'sm' })).toContain('pointer-coarse:after:size-11');
+    expect(iconButtonClass({ size: 'md' })).not.toContain('pointer-coarse:after:size-11');
   });
 
   it('renders a square box for every size', () => {
