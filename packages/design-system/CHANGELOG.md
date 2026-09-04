@@ -122,7 +122,7 @@ which was right, so each new component guessed.
 `README.md`'s Forms shelf also lists `Chip` now. It has been exported since
 0.17.0 and the catalogue simply never named it.
 
-[#PR](https://github.com/ansavva/design-system/pull/PR)
+[#14](https://github.com/ansavva/design-system/pull/14)
 
 ## 0.17.0 — minor
 

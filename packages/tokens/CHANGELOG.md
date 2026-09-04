@@ -60,7 +60,7 @@ The ramp itself did not change value. What changed is that the semantic layer
 now points at it instead of at a separate brand palette, which is what makes a
 re-theme one override rather than fourteen.
 
-[#PR](https://github.com/ansavva/design-system/pull/PR)
+[#14](https://github.com/ansavva/design-system/pull/14)
 
 ## 0.5.0 — minor
 
