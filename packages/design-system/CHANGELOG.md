@@ -18,9 +18,113 @@ the PR is why, what was rejected, and how it was verified.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
-## 0.17.0 — minor
+## 0.18.0 — minor
 
-**Widen your range to take this:** `^0.16.x` will not resolve it.
+**Widen your range to take this:** `^0.17.x` will not resolve it.
+
+**Needs `@ansavva/tokens` 0.6.0.** Bump both — a large part of this release is
+that one, reaching you through the generated `theme.css` this package ships.
+
+Three changes in one version: a new default theme, a focus ring that is this
+package's again on React Native, and five native leaves that stop taking their
+parent's width. The first is visual and affects everyone; the last two are
+React Native only.
+
+### The default theme is monochrome and square
+
+**A visual overhaul with no API change.** No prop, type or export moved; nothing
+stops compiling. Every component looks different.
+
+- **The chrome is grey.** Navy and brass are gone; surfaces, borders, text and
+  the primary fill are all steps on the neutral ramp. `tokens` 0.6.0 has the
+  role-by-role table and the measured contrast.
+- **Corners are square.** Every radius except `pill` is 0, so Buttons, Cards,
+  Inputs, Chips, Dialogs and the rest render as rectangles. Set `--radius-md`
+  (or `ThemeProvider`'s `radii`) to bring rounding back everywhere at once.
+- **Headings are set in the body sans, not a serif.** `Text variant="display"`,
+  `"heading"` and `"title"` all change face. The native leaf's per-platform
+  mapping moved with the token — iOS `System`, Android `sans-serif` — so both
+  leaves still agree, which is the whole reason that indirection exists. It is
+  KEPT rather than deleted: point `fonts.heading` at a serif and it is still the
+  one place the native leaves have to follow.
+- **A `danger` Button's label is legible again.** Its foreground was the old
+  brand's navy on a red fill; it is now measured at 6.06:1 light and 6.78:1
+  dark.
+- **Nothing about the override seams changed.** CSS custom properties on web and
+  `ThemeProvider` on native work exactly as before — and are now the whole
+  story, since the default theme states no brand for them to fight.
+
+**If you were overriding tokens to escape the old brand, delete those
+overrides first and see what you get.** A good deal of what consumers wrote to
+neutralise navy-and-brass is now the default.
+
+### The React Native focus ring is this package's again
+
+Two separate holes, same symptom: a focused control ringed in Chromium's default
+blue instead of the ring `lib/native-focus.native.ts` exists to draw. Nothing to
+change on your side; controls that were already correct are untouched.
+
+- **`Button`, `Toggle`, `IconButton` and `Chip` never adopted the ring at all.**
+  It shipped with the text inputs and the migration stopped there, so every
+  pressable in the package fell through to the browser's outline — hard against
+  the control, no offset, and not a colour this design system owns. All four now
+  draw it, following the OS colour scheme like every other native colour.
+- **A caller's own `onFocus` silently turned the ring OFF** on `Input`,
+  `Textarea` and `DateInput`. Those leaves wired the ring and then spread
+  `{...props}` after it, so React took the caller's handler and dropped the
+  package's — meaning the ring worked in the workbench, where no story passes
+  one, and stopped the moment a consumer did. The handlers are pulled out of the
+  spread now and both run, caller's first-class rather than dead code. **If you
+  passed `onFocus` to one of these and lost the ring, that was this.**
+  `Select`, `Combobox` and `Field` were checked and were already correct —
+  their spreads land on a different element — so they are unchanged.
+
+Every one of the seven is pinned by a test that fails without the fix.
+
+### Five native leaves hug their content instead of their parent
+
+**React Native only, and it changes layout.** `Button`, `Toggle`,
+`ToggleGroup.Root`, `Spinner` and `Chip` no longer stretch to the width of their
+parent — they hug their content, exactly as their web leaves have always done.
+Web consumers get nothing here.
+
+The cause is one asymmetry worth knowing about even if you never read this
+package's source: a React Native parent defaults to `alignItems: 'stretch'`, so
+a child that declares no cross-axis size does not get its natural size, it gets
+the PARENT's. Those five leaves declared none. Their web leaves are all
+`inline-flex`, which hugs. So the same markup gave you a button that fitted its
+label on web and one that ran the full width of the screen on a device — and
+nothing in this repo could see it, because the tests render into jsdom and assert
+roles and labels.
+
+- **If you relied on a full-width native `Button` or `Toggle`, that is now
+  yours to ask for:** `style={{ alignSelf: 'stretch' }}` on the control, or a
+  parent that sizes it. This is the same edit you would already have made on
+  web to get `w-full`, so the two platforms now need the same instruction
+  instead of disagreeing by default.
+- **`Spinner` was the worst of the five and the least visible.** Its `size` sets
+  the diameter of the ring, but under react-native-web that lands on an inner
+  view — the outer box stayed `width: auto` and stretched, so a 16px spinner sat
+  centred in a full-width hole. Anything laid out beside it was pushed away by a
+  box the size of the row.
+- **`Chip` shipped stretched in 0.17.0.** It is in the same list for the same
+  reason, and it is why the rule below is written down rather than left to each
+  leaf: a chip row is the entire point of the component, and no test here could
+  see that there wasn't one.
+- `Switch` and `IconButton` already agreed with their web leaves, through a
+  definite width rather than an alignment, and are unchanged. So is `Ribbon`,
+  which is absolutely positioned and whose width its parent never decided.
+
+The rule is now written down — in `packages/design-system/CLAUDE.md` and the
+component skill — because the package had two conventions and no statement of
+which was right, so each new component guessed.
+
+`README.md`'s Forms shelf also lists `Chip` now. It has been exported since
+0.17.0 and the catalogue simply never named it.
+
+[#14](https://github.com/ansavva/design-system/pull/14)
+
+## 0.17.0 — minor
 
 **Needs `@ansavva/tokens` 0.5.0** for `danger-text` and the `overlay-*` roles.
 Bump both, or a `danger` Button renders an unstyled foreground and

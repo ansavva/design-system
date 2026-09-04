@@ -25,6 +25,7 @@ import { Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
 
 import { radii, spacing } from '@ansavva/tokens';
 
+import { useNativeFocusRing } from '../lib/native-focus';
 import { useNativeColors } from '../lib/native-theme';
 import { textScale } from '../lib/native-typography';
 import { useToggleState, type ToggleOwnProps, type ToggleSize } from './toggle.props';
@@ -75,12 +76,22 @@ export function Toggle({
   label,
   children,
   style,
+  // PULLED OUT OF `props` ON PURPOSE. `props` is spread LAST below, so a
+  // caller's own handler left in there would replace the ring wiring outright
+  // rather than run alongside it.
+  onFocus,
+  onBlur,
   ...props
 }: ToggleProps) {
   const state = useToggleState(pressed, defaultPressed, onPressedChange, disabled, value, size);
   // Colors resolve per render so the leaf follows the OS scheme; only the
   // scheme-independent layout lives at module level in StyleSheet.create.
   const c = useNativeColors();
+  // This package's ring rather than the browser's default blue one, which is
+  // what react-native-web paints on an unringed Pressable — see
+  // lib/native-focus.native.ts. The web leaf has always drawn the package ring;
+  // until now the two panes disagreed on nothing but focus.
+  const focus = useNativeFocusRing();
 
   // Web-only ARIA attribute, not in react-native's PressableProps type but
   // forwarded verbatim by react-native-web — see the file header.
@@ -97,6 +108,14 @@ export function Toggle({
       {...webAria}
       disabled={state.disabled}
       onPress={() => state.toggle()}
+      onFocus={(event) => {
+        focus.focus();
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        focus.blur();
+        onBlur?.(event);
+      }}
       style={(pressableState) => [
         styles.base,
         iconOnly
@@ -106,6 +125,7 @@ export function Toggle({
           backgroundColor: state.pressed ? c.primary : 'transparent',
           opacity: state.disabled ? 0.5 : pressableState.pressed ? 0.9 : 1,
         },
+        focus.ringStyle,
         typeof style === 'function' ? style(pressableState) : style,
       ]}
       {...props}
@@ -126,6 +146,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // Shrink-wrap, as the web leaf's `inline-flex` does. A React Native parent
+    // defaults to `alignItems: 'stretch'`, so without this a TEXT toggle fills
+    // its parent's width while the web one hugs its label — `iconOnly` already
+    // escaped that through the definite width it sets per size, which is why
+    // this only ever showed on half the component. See chip.native.tsx for the
+    // long version.
+    alignSelf: 'flex-start',
     borderRadius: radii.md,
   },
   label: { ...textScale.sm, fontWeight: '500' },
