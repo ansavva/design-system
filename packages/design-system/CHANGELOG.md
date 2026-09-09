@@ -21,6 +21,24 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.6 — patch
+
+**A typecheck fix for consumers, with no runtime change.** If 0.21.4 and
+0.21.5 compile for you, nothing here moves; if they do not, this is why.
+
+- **0.21.4 failed `tsc` in a consumer whose program augments `TextStyle`.**
+  `suppressPlatformFocusRing` was cast to a `ViewStyle` and spread into the
+  `style` of the `TextInput` inside `NumberInput` and `PasswordInput`, whose
+  native leaves went to it in that release. `StyleProp<TextStyle>` accepts a
+  `ViewStyle` in this package's own programs, so the gate stayed green — and
+  react-native-web's typings widen `userSelect` to `string`, which makes the
+  two types conflict rather than merely differ, and the assignment a hard
+  `TS2769` in published source. Two errors, in two components, for anyone
+  typechecking a React Native app that renders on web. The value is cast to
+  `TextStyle` now.
+
+[#24](https://github.com/ansavva/design-system/pull/24)
+
 ## 0.21.5 — patch
 
 React Native only, and only under react-native-web — the browser a React
