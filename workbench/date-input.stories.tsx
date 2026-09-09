@@ -214,20 +214,37 @@ export const Basic: Story = {
     // portal is what made it subtle — the surface is a child of document.body,
     // so `screen` rather than `pair()`'s scoped queries — and because the
     // browser is where a React Native consumer's users meet this leaf.
+    //
+    // Both steps let the picker SETTLE before dismissing it, and that wait is
+    // not politeness. Closing the native picker inside roughly the first half
+    // second — while `Wheel`'s columns are still scrolling to the value the
+    // field opened on — silently rewrites the field to the first row of every
+    // column: `2019-02-14` becomes `1926-02-14`. That is a `wheel.native.tsx`
+    // bug, not this component's; it predates the dismissal fix and reproduces
+    // identically on the BUTTON, which was the only way to close a picker
+    // before this PR. The web leaf does not do it. Without the wait these
+    // steps would leave a corrupted value on the canvas and read as though
+    // dismissal caused it.
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 700));
+
     await step('native leaf: Escape closes the picker the BUTTON opened', async () => {
       await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
       await expect(screen.getByRole('dialog')).toBeInTheDocument();
+      await settle();
 
       await userEvent.keyboard('{Escape}');
       await expect(screen.queryByRole('dialog')).toBeNull();
+      await expect(native.getByRole('textbox')).toHaveValue('2019-02-14');
     });
 
     await step('native leaf: and so does a press outside it', async () => {
       await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
       await expect(screen.getByRole('dialog')).toBeInTheDocument();
+      await settle();
 
       await userEvent.click(web.getByRole('textbox'));
       await expect(screen.queryByRole('dialog')).toBeNull();
+      await expect(native.getByRole('textbox')).toHaveValue('2019-02-14');
     });
 
     await step('web leaf: the button opens the wheels on the typed date', async () => {
