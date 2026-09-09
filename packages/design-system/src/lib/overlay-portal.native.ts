@@ -75,8 +75,14 @@ interface DomWindowLike {
   removeEventListener(type: string, listener: () => void, options?: { capture?: boolean }): void;
 }
 
+interface DomDocumentLike {
+  body: unknown;
+  addEventListener(type: string, listener: (event: { target: unknown }) => void): void;
+  removeEventListener(type: string, listener: (event: { target: unknown }) => void): void;
+}
+
 const web = globalThis as {
-  document?: { body: unknown };
+  document?: DomDocumentLike;
   window?: DomWindowLike;
 };
 
@@ -161,6 +167,56 @@ export function useOverlayAnchor(
   }, [enabled, open, anchorRef]);
 
   return enabled && open ? anchor : null;
+}
+
+/**
+ * Dismiss an open overlay when a press lands outside every node it owns.
+ *
+ * THE PORTAL IS WHY THIS TAKES A LIST. Once the surface renders as a child of
+ * `document.body` it is no longer a DOM descendant of the anchor, so the
+ * single `root.contains(target)` check a `.web` leaf gets away with would
+ * treat every press on the overlay's own contents as a press outside — and
+ * close it before the press could land. The anchor AND the surface both have
+ * to be asked.
+ *
+ * `mousedown`, not `click`, for the reason the web leaves record: a press that
+ * starts outside and ends inside should still count as leaving.
+ *
+ * ON A REAL NATIVE DEVICE this is inert — there is no document to listen to,
+ * which is the limitation Popover's native leaf documents. It is live exactly
+ * where the portal is, and that is the environment the gap was reachable in:
+ * a React Native consumer rendering through react-native-web, where every
+ * other control on the page dismisses this way and this one did not.
+ */
+export function useOverlayOutsidePress(
+  open: boolean,
+  within: ReadonlyArray<React.RefObject<View | null>>,
+  onOutside: () => void,
+): void {
+  const enabled = overlayPortalEnabled();
+  // Read through a ref rather than listed as dependencies: `within` is an
+  // array literal at every call site and `onOutside` a fresh closure, so
+  // depending on them would tear the listener down and rebuild it on every
+  // render of an open overlay. Assigned during render, as select.native.tsx
+  // does with its active-option ref.
+  const latest = React.useRef({ within, onOutside });
+  latest.current = { within, onOutside };
+
+  React.useEffect(() => {
+    if (!enabled || !open) return undefined;
+    const onMouseDown = (event: { target: unknown }) => {
+      const inside = latest.current.within.some((ref) => {
+        // A react-native-web View ref IS the DOM node; `contains` is the
+        // structural shape asked for, since the native program has no DOM lib.
+        const node = ref.current as unknown as { contains?: (other: unknown) => boolean } | null;
+        return node?.contains?.(event.target) === true;
+      });
+      if (!inside) latest.current.onOutside();
+    };
+    const doc = web.document;
+    doc?.addEventListener('mousedown', onMouseDown);
+    return () => doc?.removeEventListener('mousedown', onMouseDown);
+  }, [enabled, open]);
 }
 
 /**

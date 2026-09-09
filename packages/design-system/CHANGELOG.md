@@ -21,6 +21,35 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.7 — patch
+
+React Native only, and only under react-native-web — which is where a React
+Native consumer's users actually meet these leaves.
+
+- **`DateInput`'s picker could not be dismissed by anything but the button that
+  opened it.** A press anywhere outside the open surface left it up, and so did
+  Escape, so the picker sat over the form until the user found their way back to
+  the calendar button. The web leaf has closed on both since 0.12.0; the two
+  leaves now agree.
+
+  Two separate causes, both invisible to every test that existed. There was no
+  outside-press listener in the native leaf at all — the leaf's own header said
+  React Native has no document to listen to, which is true on a device and not
+  true in a browser, where this leaf already portals its surface into one.
+  And the Escape binding was on the `TextInput`, which react-native-web
+  overwrites with a handler of its own (and which opens by calling
+  `stopPropagation`), so that binding never ran in any focus position — least
+  of all the ordinary one, where pressing the button leaves focus on the
+  *button*. Escape is now bound to the root in the CAPTURE phase, which is
+  ahead of both, and the outside listener is told about the portaled surface as
+  well as the root, so a press on the wheels is not read as a press outside.
+
+  On a real native device nothing changes: there is no document to listen to
+  and no Escape key, so the picker still closes on its own button, and a Modal
+  remains the change to make when a native client exists.
+
+[#25](https://github.com/ansavva/design-system/pull/25)
+
 ## 0.21.6 — patch
 
 **A typecheck fix for consumers, with no runtime change.** If 0.21.4 and
