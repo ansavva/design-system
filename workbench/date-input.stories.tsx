@@ -207,6 +207,29 @@ export const Basic: Story = {
       await expect(args.onValueChange).toHaveBeenLastCalledWith('2019-02-14', 'valid');
     });
 
+    // Dismissal, on the leaf where it shipped broken. The native leaf had no
+    // outside listener at all and bound Escape to a node react-native-web
+    // overwrites, so an open picker could only be closed on the button that
+    // opened it. Asserted HERE and not only in the native suite because the
+    // portal is what made it subtle — the surface is a child of document.body,
+    // so `screen` rather than `pair()`'s scoped queries — and because the
+    // browser is where a React Native consumer's users meet this leaf.
+    await step('native leaf: Escape closes the picker the BUTTON opened', async () => {
+      await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
+      await expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await userEvent.keyboard('{Escape}');
+      await expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    await step('native leaf: and so does a press outside it', async () => {
+      await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
+      await expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await userEvent.click(web.getByRole('textbox'));
+      await expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
     await step('web leaf: the button opens the wheels on the typed date', async () => {
       await userEvent.click(web.getByRole('button', { name: 'Choose a date' }));
       const picker = within(web.getByRole('dialog'));

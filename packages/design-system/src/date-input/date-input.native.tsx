@@ -12,11 +12,21 @@
 // (react-native-web) the open surface PORTALS to `document.body`, positioned
 // from the measured root, so no consumer wrapper's stacking context can paint
 // over it — `../lib/overlay-portal` owns the mechanism and the reasoning. On
-// a real native device it stays inline and absolutely positioned. The cost is
-// the one Popover's native leaf documents — no press-outside dismissal,
-// because RN has no document to listen to — so the field closes the picker on
-// its own button, on Escape where there is a keyboard, and when the value is
-// picked.
+// a real native device it stays inline and absolutely positioned.
+//
+// DISMISSAL, and where the two platforms genuinely differ. In a browser this
+// closes on a press outside and on Escape, exactly as the web leaf does. Both
+// halves shipped broken and are fixed in 0.21.7: there was no outside
+// listener at all, and the Escape binding sat on the TextInput, where
+// react-native-web overwrites it — so once the picker was open the button was
+// the only way back out of it. `useOverlayOutsidePress` is the shared
+// mechanism now, and it has to be told about the SURFACE as well as the root,
+// because the portal has already moved the surface out of the root's subtree.
+//
+// On a real native device there is no document to listen to — the limitation
+// Popover's native leaf documents — so there the picker still closes on its
+// own button and nothing else, and a Modal is the change to make when a
+// native client exists.
 import * as React from 'react';
 import {
   Dimensions,
@@ -42,6 +52,7 @@ import {
   overlayPortalEnabled,
   overlayPortalPosition,
   useOverlayAnchor,
+  useOverlayOutsidePress,
 } from '../lib/overlay-portal';
 import { PickerIcon } from './date-input-icon.native';
 import {
@@ -113,8 +124,44 @@ export const DateInput = ({
   // it portals to document.body, positioned from this measured root; on a
   // real native device `anchor` stays null and the surface renders inline.
   const rootRef = React.useRef<View | null>(null);
+  const surfaceRef = React.useRef<View | null>(null);
   const portalEnabled = overlayPortalEnabled();
   const anchor = useOverlayAnchor(open, rootRef);
+
+  // Pressing anywhere outside closes without committing anything — the
+  // behaviour of every native date control, and what the web leaf already
+  // did. BOTH nodes are named: the portal has moved the surface out of the
+  // root's subtree, so a root-only check would read a press on the wheels as
+  // a press outside and close the picker out from under it.
+  useOverlayOutsidePress(
+    open,
+    [rootRef, surfaceRef],
+    React.useCallback(() => setOpen(false), [setOpen]),
+  );
+
+  // Escape closes, for the browser case. Bound to the ROOT in the CAPTURE
+  // phase, and both halves of that are the fix.
+  //
+  // THE ROOT, because focus is wherever the picker was opened from: pressing
+  // the button leaves focus on the BUTTON, so the binding this leaf used to
+  // carry — on the TextInput — was listening at the one node the ordinary
+  // interaction never touches. React routes synthetic events through the
+  // React tree rather than the DOM one, so the root also hears the portaled
+  // surface, which is not a DOM descendant of anything here.
+  //
+  // CAPTURE, because react-native-web's TextInput does two things to keydown
+  // that make the bubble phase unusable: it OVERWRITES any `onKeyDown` a
+  // caller passes with its own handler (so the old binding was never called
+  // at all, in any focus position), and that handler opens with
+  // `stopPropagation` (its #612), so a keystroke in the field never reaches
+  // an ancestor either. Capture runs top-down before either happens. Nothing
+  // inside the surface wants Escape — Wheel and Calendar handle arrows, Home,
+  // End and the page keys — so intercepting it here takes it from no one.
+  const onEscapeCapture = (event: { key: string; preventDefault?: () => void }) => {
+    if (!open || event.key !== 'Escape') return;
+    event.preventDefault?.();
+    setOpen(false);
+  };
 
   // Flip the surface above the field when it does not fit below — the web
   // leaf's copy of this carries the reasoning. Measured from the surface's own
@@ -176,6 +223,7 @@ export const DateInput = ({
   // pickers — the portal changes WHERE the surface paints, never what it is.
   const surface = open ? (
     <View
+      ref={surfaceRef}
       nativeID={surfaceId}
       // `role="dialog"` WITHOUT `aria-modal`, which would claim the rest of
       // the page is inert while it demonstrably is not. RN's own Role union
@@ -218,7 +266,14 @@ export const DateInput = ({
   ) : null;
 
   return (
-    <View ref={rootRef} style={[styles.root, open && !portalEnabled ? styles.rootOpen : null]}>
+    <View
+      ref={rootRef}
+      style={[styles.root, open && !portalEnabled ? styles.rootOpen : null]}
+      // `onKeyDownCapture` is web-only and outside RN's own View types;
+      // react-native-web forwards it. See `onEscapeCapture` for why the
+      // capture phase and why this node.
+      {...({ onKeyDownCapture: onEscapeCapture } as object)}
+    >
       <TextInput
         nativeID={field?.controlId}
         aria-labelledby={field?.labelId}
@@ -240,15 +295,6 @@ export const DateInput = ({
           focus.blur();
           onBlur?.(event);
         }}
-        // Escape closes, for the browser case. Bound here rather than on the
-        // surface because opening does not move focus — it stays in the field.
-        {...({
-          onKeyDown: (event: { key: string; preventDefault?: () => void }) => {
-            if (!open || event.key !== 'Escape') return;
-            event.preventDefault?.();
-            setOpen(false);
-          },
-        } as object)}
         style={[
           styles.control,
           { borderRadius: r.md },
