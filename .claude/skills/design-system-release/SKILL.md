@@ -91,6 +91,35 @@ opens with the line that tells them it will not arrive on its own:
 **Widen your range to take this:** `^0.12.x` will not resolve it.
 ```
 
+## When main moves under your PR
+
+Another release merged while yours was open. Now both claim the same number,
+and after a rebase both entries sit at the top of the changelog. This is the
+design working as intended — the PR chooses the number, so two open PRs choose
+the same one — and the second to merge renumbers. It is mechanical:
+
+```bash
+git rebase origin/main
+npm run bump -- design-system patch
+npm run changelog:check
+```
+
+If the rebase stops on `CHANGELOG.md`, resolve it by **keeping both entries**
+in either order; on `package.json`, either side. `scripts/bump.ts` then reads
+main's version, adds your bump, writes the manifest, and moves your entry —
+the one whose heading carries the number you had — to the top with its heading
+renumbered and its *widen your range* line pointing at the right previous
+version. The gate confirms the result.
+
+Run the same command on a fresh branch, before writing anything: it claims the
+next number and writes the heading with a TODO body, and the gate refuses a
+TODO, so the entry cannot be forgotten.
+
+**Never fill a gap.** 0.21.1 was claimed by a branch that merged after 0.21.2,
+so it will never exist. npm does not require versions to be contiguous, the
+gate requires only descending order, and republishing to fill one would move
+the `latest` tag backwards.
+
 ## Removing or renaming public API
 
 `src/index.ts` is the export surface. Deleting a line from it — or dropping a
