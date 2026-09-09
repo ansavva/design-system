@@ -21,6 +21,39 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.9 — patch
+
+React Native only, and only under react-native-web. On a real device nothing
+here was ever wrong: React Native paints no default focus ring and delivers no
+Tab, so there was neither a ring to replace nor a tab order to get wrong.
+
+- **Every remaining control in the date family draws the design system's own
+  focus ring.** `DateInput`'s calendar/clock button, `Calendar`'s two month
+  pagers and its day cells, and each `Wheel` column — so also every column of
+  `DatePicker` and of `DateInput`'s wheel picker. Each previously fell through
+  to the browser's own outline while the web leaf drew this package's ring on
+  the very same control, which on a date field meant the field ringed in the
+  accent and the button beside it ringed by Chrome. Nothing about the API, the
+  markup or the rendered result changes, and no web leaf is affected.
+
+- **`Calendar`'s arrow keys move the focus they claim to move.** The arrows
+  advanced the roving tabindex — which cell is tabbable, and which the next Tab
+  leaves from — while keyboard focus stayed on the cell the user arrived at, so
+  a screen reader went on announcing that first date for every press after it
+  and the visible focus never moved. Focus now follows the arrows, as it always
+  has on the web leaf. Where the range ends the two leaves differ, and
+  unavoidably: react-native-web renders an out-of-range day as a real
+  `<button disabled>`, which cannot hold focus, so focus stops at the last day
+  in range instead of walking past it.
+
+- **An open `Select` no longer adds a tab stop per option.** react-native-web
+  makes every option focusable by default; the web leaf's rows are `<li>` and
+  focusable by nothing. Tabbing off the trigger closed the list and dropped
+  focus on the page rather than moving to the next control. The list is walked
+  with the arrow keys on both leaves, as documented.
+
+[#27](https://github.com/ansavva/design-system/pull/27)
+
 ## 0.21.8 — patch
 
 React Native only, and only under react-native-web — the browser a React

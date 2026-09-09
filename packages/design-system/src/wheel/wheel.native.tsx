@@ -58,6 +58,7 @@ import {
 
 import { spacing } from '@ansavva/tokens';
 
+import { useNativeFocusRing } from '../lib/native-focus';
 import { useNativeColors, useNativeRadii } from '../lib/native-theme';
 import { textScale, useNativeBodyFamily } from '../lib/native-typography';
 import {
@@ -109,6 +110,9 @@ export const Wheel = ({
 }: WheelProps) => {
   const c = useNativeColors();
   const r = useNativeRadii();
+  // ONE ring for the column, on the listbox — the single tab stop the rows
+  // give up their tabindex for. The web leaf rings the same element.
+  const focus = useNativeFocusRing();
   const body = useNativeBodyFamily();
   const state = useWheelState({ items, value, defaultValue, onValueChange });
   const {
@@ -230,7 +234,9 @@ export const Wheel = ({
         onScroll={handleScroll}
         onScrollEndDrag={settle}
         onMomentumScrollEnd={settle}
-        style={[styles.scroller, { borderRadius: r.md }, snapStyle]}
+        onFocus={focus.focus}
+        onBlur={focus.blur}
+        style={[styles.scroller, { borderRadius: r.md }, snapStyle, focus.ringStyle]}
         contentContainerStyle={styles.content}
       >
         {items.map((item, itemIndex) => {

@@ -195,4 +195,54 @@ describe('DateInput (native leaf)', () => {
     expect(style.outlineWidth).toBe('2px');
     expect(rgb(style.outlineColor)).toEqual(rgb(colors.light.accent));
   });
+
+  // 0.21.2 and 0.21.4 both, on one control: the picker button carried no
+  // `useNativeFocusRing` at all, so a keyboard user tabbing off the field got
+  // the BROWSER's ring on it under react-native-web — `outline-style: auto`,
+  // in the colour the host OS picked, while the web leaf's button drew this
+  // package's own. Two controls, two rings, because a hook instance holds a
+  // single boolean.
+  describe('the picker button draws the design system’s OWN focus ring', () => {
+    it('rings the button, in the active scheme’s accent', () => {
+      setPrefersColorScheme('light');
+      render(<DateInput aria-label="Date" />);
+
+      const button = screen.getByRole('button', { name: 'Choose a date' });
+      expect(getComputedStyle(button).outlineWidth).not.toBe('2px');
+
+      act(() => button.focus());
+
+      const style = getComputedStyle(button);
+      expect(style.outlineStyle).toBe('solid');
+      expect(style.outlineWidth).toBe('2px');
+      expect(style.outlineOffset).toBe('2px');
+      expect(rgb(style.outlineColor)).toEqual(rgb(colors.light.accent));
+    });
+
+    it('resolves the ring colour from the active scheme', () => {
+      setPrefersColorScheme('dark');
+      render(<DateInput aria-label="Date" />);
+
+      const button = screen.getByRole('button', { name: 'Choose a date' });
+      act(() => button.focus());
+
+      expect(rgb(getComputedStyle(button).outlineColor)).toEqual(rgb(colors.dark.accent));
+    });
+
+    it('rings only the control that has focus, never both', () => {
+      setPrefersColorScheme('light');
+      render(<DateInput aria-label="Date" />);
+
+      const field = screen.getByRole('textbox', { name: 'Date' });
+      const button = screen.getByRole('button', { name: 'Choose a date' });
+
+      act(() => button.focus());
+      expect(getComputedStyle(button).outlineWidth).toBe('2px');
+      expect(getComputedStyle(field).outlineWidth).not.toBe('2px');
+
+      act(() => field.focus());
+      expect(getComputedStyle(field).outlineWidth).toBe('2px');
+      expect(getComputedStyle(button).outlineWidth).not.toBe('2px');
+    });
+  });
 });

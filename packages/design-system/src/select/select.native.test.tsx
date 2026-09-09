@@ -312,4 +312,24 @@ describe('Select (native leaf)', () => {
 
     expect(screen.getByRole('listbox', { name: 'Destination system' })).toBeTruthy();
   });
+
+  it('is a single tab stop — the open list adds none', async () => {
+    // react-native-web gives every enabled Pressable `tabIndex="0"`, so an open
+    // list was one tab stop per option, each wearing the browser's own outline
+    // as it went, where the web leaf's rows are `<li>` and focusable by
+    // nothing. Worse, the first Tab off the trigger blurred it — which closes
+    // the list — so focus landed on a row that unmounted underneath it and
+    // fell back to `<body>`. Same override, and same reasoning, as the wheel's.
+    const user = userEvent.setup();
+    render(<Select aria-label="District" options={DISTRICTS} />);
+
+    const combobox = screen.getByRole('combobox');
+    expect(combobox).not.toHaveAttribute('tabindex', '-1');
+
+    await user.click(combobox);
+
+    for (const option of screen.getAllByRole('option')) {
+      expect(option).toHaveAttribute('tabindex', '-1');
+    }
+  });
 });

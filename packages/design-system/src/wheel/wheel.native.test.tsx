@@ -152,4 +152,37 @@ describe('Wheel (native leaf)', () => {
       rgb(colors.dark.surfaceAlt),
     );
   });
+
+  // The single tab stop above is the column's ONE focusable element, and until
+  // now it was the one element with no ring: under react-native-web it fell
+  // through to the browser's own outline while the web leaf ringed the same
+  // listbox in the package's accent. A datetime picker is six of these in a
+  // row, so it is the surface where the mismatch is hardest to miss.
+  describe('draws the design system’s OWN focus ring on the listbox', () => {
+    it('rings the listbox in the active scheme’s accent', () => {
+      setPrefersColorScheme('light');
+      render(<Wheel label="Year" items={YEARS} defaultValue="2020" />);
+
+      const listbox = screen.getByRole('listbox');
+      expect(getComputedStyle(listbox).outlineWidth).not.toBe('2px');
+
+      act(() => listbox.focus());
+
+      const style = getComputedStyle(listbox);
+      expect(style.outlineStyle).toBe('solid');
+      expect(style.outlineWidth).toBe('2px');
+      expect(style.outlineOffset).toBe('2px');
+      expect(rgb(style.outlineColor)).toEqual(rgb(colors.light.accent));
+    });
+
+    it('resolves the ring colour from the active scheme', () => {
+      setPrefersColorScheme('dark');
+      render(<Wheel label="Year" items={YEARS} defaultValue="2020" />);
+
+      const listbox = screen.getByRole('listbox');
+      act(() => listbox.focus());
+
+      expect(rgb(getComputedStyle(listbox).outlineColor)).toEqual(rgb(colors.dark.accent));
+    });
+  });
 });
