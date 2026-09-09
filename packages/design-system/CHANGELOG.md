@@ -21,6 +21,41 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.5 — patch
+
+React Native only, and only under react-native-web — the browser a React
+Native consumer's users meet these components in. On a real device nothing
+here was ever wrong: React Native delivers no `keydown`, so there was no
+keyboard to lose.
+
+- **`Combobox` had no working keyboard at all.** ArrowDown/ArrowUp to open,
+  the arrows to walk the filtered list, Enter to commit the highlight and
+  Escape to discard what was typed were all dead — the whole grammar the
+  component documents, in every focus position. The list could only be opened
+  by typing and a value only chosen by pressing an option with a pointer,
+  which leaves a keyboard-only user with no way to choose one at all. All of
+  it works now; nothing about the API, the markup or the rendered result
+  changes, and the web leaf was never affected.
+
+  The binding sat on the `TextInput`, and react-native-web's `TextInput`
+  overwrites a caller's `onKeyDown` with its own — which then calls
+  `stopPropagation`, so the key reached no ancestor either. It is bound to the
+  leaf's root in the capture phase now, ahead of both. Typing is untouched:
+  Home, End, Space and every printable character still belong to the text
+  caret, and Tab still lets focus leave without committing the highlight.
+
+  Native-leaf keyboard tests cover the grammar now. The gap is why this
+  shipped: the web leaf's own keyboard tests pass either way, because a DOM
+  `<input>` keeps the handler it is given.
+
+- **The same trap was audited across every other native leaf, and `Combobox`
+  was the only component affected here.** `Select`, `Wheel` and `Calendar`
+  bind their keyboards to a `Pressable`, a `ScrollView` and a `View`, all of
+  which forward `onKeyDown` untouched. `DateInput`'s Escape is the other
+  instance and is fixed separately.
+
+[#23](https://github.com/ansavva/design-system/pull/23)
+
 ## 0.21.4 — patch
 
 React Native only, and only under react-native-web. On a real device nothing
