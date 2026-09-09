@@ -11,10 +11,25 @@ does not arrive at all until the range is widened where the dependency is
 declared. Every minor below says so.
 
 Each entry links the pull request that shipped it. The entry is what changed;
-the PR is why, what was rejected, and how it was verified.
+the PR is why, what was rejected, and how it was verified. **Entries below
+0.3.2 carry no link**: the pull requests that shipped those versions predate
+this repository's history, and no number here corresponds to them. 0.3.2 links
+the commit that seeded that history and published it.
 
 > `0.1.x` is absent because it was never published — the package was
 > `private: true` while every consumer resolved it from the same workspace.
+
+## 0.6.1 — patch
+
+- **`CHANGELOG.md` only. No token value changed and nothing this package exports
+  changed.** Five entries linked pull request numbers that do not describe them:
+  four pointed at real but unrelated pull requests in this repository, so they
+  read as legitimate and led somewhere wrong, and one did not exist and 404'd.
+  Entries below 0.3.2 now carry no link at all, 0.3.2 links the commit that
+  published it, and the preamble above states the rule. Every link that remains
+  resolves to the pull request its entry describes.
+
+[#19](https://github.com/ansavva/design-system/pull/19)
 
 ## 0.6.0 — minor
 
@@ -135,7 +150,7 @@ All additive — no existing token changed value.
   `tokens.json`, `src/tokens.ts` and `src/colors.json` are byte-identical — take
   `@ansavva/design-system` 0.14.0 for the fix itself.
 
-[#14](https://github.com/ansavva/design-system/pull/14)
+[e8fbeb6](https://github.com/ansavva/design-system/commit/e8fbeb6863110c0b1d86b2b03d423bb5b10b89c8)
 
 ## 0.3.1 — patch
 
@@ -148,8 +163,6 @@ All additive — no existing token changed value.
 - Entries are backfilled to 0.2.0, the first published version.
 - Each published version now also gets a git tag and a GitHub Release.
 - No token value changed.
-
-[#13](https://github.com/ansavva/design-system/pull/13)
 
 ## 0.3.0 — minor
 
@@ -168,8 +181,6 @@ All additive — no existing token changed value.
   5.4. A semantic colour does not know which surface it lands on, so measuring
   against the background alone would have been the same mistake in a new place.
 
-[#10](https://github.com/ansavva/design-system/pull/10)
-
 ## 0.2.2 — patch
 
 - Documentation only; **no token value changed**. The `fonts` comment now states
@@ -178,15 +189,11 @@ All additive — no existing token changed value.
   map the heading role onto each platform's own serif — and that no font file
   ships from here. Registering one is the consuming app's job.
 
-[#2](https://github.com/ansavva/design-system/pull/2)
-
 ## 0.2.1 — patch
 
 - Documentation only; **no token value changed**. Token descriptions and the
   generator's output banners no longer describe the repository this package was
   extracted from.
-
-[#1](https://github.com/ansavva/design-system/pull/1)
 
 ## 0.2.0 — minor
 
