@@ -21,6 +21,50 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.8 — patch
+
+React Native only, and only under react-native-web — the browser a React
+Native consumer's users meet these components in. On a real device nothing
+here was ever wrong: the misbehaving timer belongs to react-native-web's own
+`ScrollView`, which a device never loads.
+
+- **`DateInput`'s wheel picker silently rewrote the field when it was closed
+  right after being opened.** Open the picker on a field holding `2019-02-14`,
+  close it again within about a tenth of a second, and the field became
+  `1926-02-14` — every column jumped to its first row, with no interaction
+  with any wheel and nothing to say it had happened. Silent corruption of a
+  stored date, so the same close is now inert whatever the timing. All three
+  routes out of the picker did it — the button, Escape and a press outside,
+  the last two new in 0.21.7 — because none of them is the cause. Let the
+  picker stand for a moment first and it was always fine, which is why this
+  survived: it needs a close faster than a person browsing usually manages,
+  and no faster than a person who opened the wrong field by mistake.
+
+  `Wheel`'s native leaf commits the row a scroll settles on, on a 120ms
+  debounce, because `onMomentumScrollEnd` never fires under react-native-web.
+  ScrollViewBase schedules its own scroll-end with a plain 100ms `setTimeout`
+  and never clears it when it unmounts, so it calls `onScroll` once more into a
+  wheel that is already gone — reading the position off the detached node,
+  which a browser has zeroed. That late event re-armed the debounce *after* the
+  cleanup which clears it had run, and the settle it armed then committed row
+  0 of every column. The leaf now refuses to track, arm or commit from any
+  scroll event that arrives after it unmounts; a scroll a user actually makes
+  arrives while it is mounted, so nothing else changes. `DatePicker` and any
+  other caller of `Wheel` get the same fix, and the web leaf was never
+  affected — it settles on the browser's `scrollend`, which a removed element
+  does not fire.
+
+  Covered twice, because neither gate reaches the whole of it. `Wheel`'s
+  native tests drive react-native-web's real late callback and assert nothing
+  commits, supplying only the detached-node zero by hand — jsdom keeps a
+  `scrollTop` a browser would clear. `DateInput`'s Basic story opens and shuts
+  the native picker in a real browser and asserts the field is untouched,
+  which is the whole path as a person walks it. The 700ms wait 0.21.7's story
+  steps needed before dismissing the picker is gone with the bug that forced
+  it.
+
+[#26](https://github.com/ansavva/design-system/pull/26)
+
 ## 0.21.7 — patch
 
 React Native only, and only under react-native-web — which is where a React

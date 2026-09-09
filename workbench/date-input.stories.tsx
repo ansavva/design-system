@@ -178,8 +178,9 @@ type Story = StoryObj<typeof meta>;
 /**
  * Ends with the picker OPEN in the web pane, which is the state worth auditing:
  * axe runs after the play, so a surface that is never left open is a surface
- * never audited. Only one pane is opened — two anchored surfaces at once make
- * the comparison harder to read, not easier.
+ * never audited. The native pane's picker is opened three times and shut every
+ * time — those steps check dismissal and the value surviving it, not the
+ * surface — so the one open surface the comparison wants is the web pane's.
  */
 export const Basic: Story = {
   play: async ({ canvasElement, args, step }) => {
@@ -215,22 +216,18 @@ export const Basic: Story = {
     // so `screen` rather than `pair()`'s scoped queries — and because the
     // browser is where a React Native consumer's users meet this leaf.
     //
-    // Both steps let the picker SETTLE before dismissing it, and that wait is
-    // not politeness. Closing the native picker inside roughly the first half
-    // second — while `Wheel`'s columns are still scrolling to the value the
-    // field opened on — silently rewrites the field to the first row of every
-    // column: `2019-02-14` becomes `1926-02-14`. That is a `wheel.native.tsx`
-    // bug, not this component's; it predates the dismissal fix and reproduces
-    // identically on the BUTTON, which was the only way to close a picker
-    // before this PR. The web leaf does not do it. Without the wait these
-    // steps would leave a corrupted value on the canvas and read as though
-    // dismissal caused it.
-    const settle = () => new Promise((resolve) => setTimeout(resolve, 700));
+    // Both steps used to wait 700ms before dismissing, because closing the
+    // picker while `Wheel`'s columns were still scrolling to the value the
+    // field opened on rewrote that value to the first row of every column.
+    // That was a `wheel.native.tsx` bug, fixed in 0.21.8, so the wait is gone.
+    // The value assertions here are NOT what covers that fix — they run the
+    // instant the surface goes, and the rewrite landed about 220ms later, so
+    // they passed throughout. The step at the end of this play is the one that
+    // waits long enough to see it.
 
     await step('native leaf: Escape closes the picker the BUTTON opened', async () => {
       await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
       await expect(screen.getByRole('dialog')).toBeInTheDocument();
-      await settle();
 
       await userEvent.keyboard('{Escape}');
       await expect(screen.queryByRole('dialog')).toBeNull();
@@ -240,7 +237,6 @@ export const Basic: Story = {
     await step('native leaf: and so does a press outside it', async () => {
       await userEvent.click(native.getByRole('button', { name: 'Choose a date' }));
       await expect(screen.getByRole('dialog')).toBeInTheDocument();
-      await settle();
 
       await userEvent.click(web.getByRole('textbox'));
       await expect(screen.queryByRole('dialog')).toBeNull();
@@ -260,6 +256,29 @@ export const Basic: Story = {
       );
       await expect(web.getByRole('textbox')).toHaveValue('2019-02-19');
       await expect(args.onValueChange).toHaveBeenLastCalledWith('2019-02-19', 'valid');
+    });
+
+    await step('native leaf: opening and closing at once leaves the value alone', async () => {
+      // A REGRESSION STEP, and one only this runner can hold. Opening the
+      // native picker and closing it again immediately used to rewrite the
+      // field to the first row of every column — `2019-02-14` became
+      // `1926-02-14` — because react-native-web's ScrollViewBase fires one
+      // last `onScroll` 100ms after any scroll, into a wheel that has already
+      // unmounted, off a detached node whose `scrollTop` a browser has zeroed.
+      // `wheel.native.tsx` owns the fix and the full account.
+      //
+      // Nothing in the jsdom suite can watch a picker open and shut in a real
+      // frame; the wheel's own unit test reaches the same guard, but only by
+      // supplying the detach by hand. This step is the one that exercises the
+      // whole path as a person does, which is why it is here and not only
+      // there.
+      const button = native.getByRole('button', { name: 'Choose a date' });
+      await userEvent.click(button);
+      await userEvent.click(button);
+      // Past both timers — RNW's 100ms scroll-end and the wheel's own 120ms
+      // settle — so a commit that was going to land has landed.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await expect(native.getByRole('textbox')).toHaveValue('2019-02-14');
     });
   },
 };
