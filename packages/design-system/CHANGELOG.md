@@ -21,6 +21,30 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.4 — patch
+
+React Native only, and only under react-native-web. On a real device nothing
+here was ever wrong: React Native paints no default focus ring, so there was
+none to cancel.
+
+- **`PasswordInput` and `NumberInput` painted two focus rings, not one.** Both
+  draw their box on a wrapping row and put a bare `TextInput` inside it, so
+  focusing the field gave the row this package's own ring — and left the
+  `<input>` inside it painting Chrome's, `outline: auto 1px`, nested within.
+  A browser default sat inside the accent ring, in a colour nothing here owns
+  and which follows neither `tokens.json` nor a `ThemeProvider` override. The
+  inner control now cancels the platform ring, so only the owned one paints,
+  in both colour schemes.
+
+  This is the other half of 0.21.2. That release gave a ring to native controls
+  that had none; these two had one already, on the wrapping row, and the leak
+  was the focused element *inside* it. Every remaining control spreads the ring
+  on the focused element itself, where it replaces whatever the platform would
+  draw — so the two that ring a wrapper were the whole affected set, checked by
+  tabbing through every workbench story in a real browser, in both schemes.
+
+[#21](https://github.com/ansavva/design-system/pull/21)
+
 ## 0.21.3 — patch
 
 - **This file only. No source, no style and no exported name changed.** Ten
