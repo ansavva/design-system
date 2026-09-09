@@ -48,7 +48,7 @@ import { spacing } from '@ansavva/tokens';
 
 import { FieldContext } from '../field/field.props';
 import { CONTROL_HEIGHT_PX, useInputState } from '../input/input.props';
-import { useNativeFocusRing } from '../lib/native-focus';
+import { suppressPlatformFocusRing, useNativeFocusRing } from '../lib/native-focus';
 import { useNativeColors, useNativeRadii } from '../lib/native-theme';
 import { textScale, useNativeBodyFamily } from '../lib/native-typography';
 import {
@@ -183,7 +183,15 @@ export const PasswordInput = ({
           focus.blur();
           onBlur?.(event);
         }}
-        style={[styles.input, { fontFamily: body }, { color: disabled ? c.muted : c.ink }, style]}
+        // The ROW above carries the owned ring; this control cancels the
+        // platform's own so only one paints. See suppressPlatformFocusRing.
+        style={[
+          styles.input,
+          suppressPlatformFocusRing,
+          { fontFamily: body },
+          { color: disabled ? c.muted : c.ink },
+          style,
+        ]}
         {...props}
       />
       <Pressable
