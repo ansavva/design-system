@@ -54,6 +54,8 @@ keyboard to lose.
   which forward `onKeyDown` untouched. `DateInput`'s Escape is the other
   instance and is fixed separately.
 
+[#23](https://github.com/ansavva/design-system/pull/23)
+
 ## 0.21.4 — patch
 
 React Native only, and only under react-native-web. On a real device nothing
