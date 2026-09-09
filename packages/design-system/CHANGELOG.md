@@ -18,6 +18,22 @@ the PR is why, what was rejected, and how it was verified.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.21.2 — patch
+
+On React Native, the Show/Hide toggle inside `PasswordInput` and every control
+in `DataGrid` — sortable column headers, the select-all and per-row checkboxes,
+and the pagination buttons — now draw the design system's own focus ring when
+focused by keyboard. Each previously fell through to the browser's default
+outline under react-native-web, so a keyboard user saw the package's ring on
+some controls and Chrome's blue one on others, sometimes within a single
+control. Nothing about the API changes, and no web leaf is affected.
+
+`PasswordInput`'s toggle gains 4px of vertical inset so its ring sits inside
+the field's border instead of straddling it; the label stays centred and the
+control's height is unchanged.
+
+[#20](https://github.com/ansavva/design-system/pull/20)
+
 ## 0.21.0 — minor
 
 **Widen your range to take this:** `^0.20.x` will not resolve it.
