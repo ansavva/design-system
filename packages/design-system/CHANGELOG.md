@@ -11,12 +11,27 @@ does not arrive at all until the range is widened where the dependency is
 declared. Every minor below says so.
 
 Each entry links the pull request that shipped it. The entry is what changed;
-the PR is why, what was rejected, and how it was verified.
+the PR is why, what was rejected, and how it was verified. **Entries below
+0.14.1 carry no link**: the pull requests that shipped those versions predate
+this repository's history, and no number here corresponds to them. 0.14.1 links
+the commit that seeded that history and published it.
 
 > Versions absent here were never published. Both packages publish only from
 > `main`, and a version bumped mid-branch is overwritten by the next bump before
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
+
+## 0.21.3 — patch
+
+- **This file only. No source, no style and no exported name changed.** Ten
+  entries linked pull request numbers that do not describe them: five pointed at
+  real but unrelated pull requests in this repository, so they read as
+  legitimate and led somewhere wrong, and five did not exist and 404'd. Entries
+  below 0.14.1 now carry no link at all, 0.14.1 links the commit that published
+  it, and the preamble above states the rule. Every link that remains resolves
+  to the pull request its entry describes.
+
+[#19](https://github.com/ansavva/design-system/pull/19)
 
 ## 0.21.2 — patch
 
@@ -535,7 +550,7 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   the field's own subtree must query the document instead. On a real native
   device both overlays still render inline, unchanged.
 
-[#17](https://github.com/ansavva/design-system/pull/17)
+[e8fbeb6](https://github.com/ansavva/design-system/commit/e8fbeb6863110c0b1d86b2b03d423bb5b10b89c8)
 
 ## 0.14.0 — minor
 
@@ -561,8 +576,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   at 20rem. They had been writing those lengths out longhand to dodge the bug
   and now say `max-w-md` and `max-w-xs`.
 
-[#14](https://github.com/ansavva/design-system/pull/14)
-
 ## 0.13.1 — patch
 
 - **This file, and it now ships inside the package.** `CHANGELOG.md` is listed
@@ -575,8 +588,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   repository.
 - Each published version now also gets a git tag and a GitHub Release, so two
   versions can be diffed for the first time.
-
-[#13](https://github.com/ansavva/design-system/pull/13)
 
 ## 0.13.0 — minor
 
@@ -594,8 +605,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   `alert.props.ts` and `ribbon.props.ts`, which documented the superseded
   measurements.
 
-[#10](https://github.com/ansavva/design-system/pull/10)
-
 ## 0.12.2 — patch
 
 - Native `Popover` and `Tooltip` rendered as narrow columns — 74pt and 73pt wide
@@ -607,8 +616,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   same way.
 - Web leaves untouched.
 
-[#7](https://github.com/ansavva/design-system/pull/7)
-
 ## 0.12.1 — patch
 
 - `Select`'s two leaves disagreed under the mouse. The web trigger now also
@@ -618,8 +625,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
 - Native `Select` options now highlight on hover, driving the same `active`
   state the arrow keys drive, so `aria-activedescendant` follows the pointer on
   both leaves.
-
-[#6](https://github.com/ansavva/design-system/pull/6)
 
 ## 0.12.0 — minor
 
@@ -635,8 +640,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   compare in every mode.
 - The picker is anchored rather than modal, and is not composed from `Popover`.
 
-[#5](https://github.com/ansavva/design-system/pull/5)
-
 ## 0.11.0 — minor
 
 **Widen your range to take this:** `^0.10.x` will not resolve it.
@@ -651,8 +654,6 @@ a dense, metadata-heavy chrome, plus one mobile a11y defect fixed at the root.
   dismissal, because React Native has no document to listen to and both
   workarounds defeat the non-modal point. `Popover.Close` is a part, not a
   flourish.
-
-[#4](https://github.com/ansavva/design-system/pull/4)
 
 ## 0.10.2 — minor
 
@@ -677,8 +678,6 @@ side by side rather than by a test.
 - `Accordion`'s web panel had no bottom padding.
 - Native `ToggleGroup` could not be named, so the group takes `role="group"`.
 
-[#2](https://github.com/ansavva/design-system/pull/2)
-
 ## 0.8.3 — minor
 
 **Widen your range to take this:** `^0.7.x` will not resolve it.
@@ -689,8 +688,6 @@ side by side rather than by a test.
   meant the accessibility gate covered two of them.
 - Accessibility became a **gate** rather than a report: every story now runs in a
   real browser and fails on any axe violation.
-
-[#1](https://github.com/ansavva/design-system/pull/1)
 
 ## 0.7.1 — patch
 

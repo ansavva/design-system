@@ -1,6 +1,6 @@
 {
   "name": "@ansavva/tokens",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Design tokens: one JSON source of truth rendered into typed TypeScript for React Native, CSS custom properties for the web, and plain JSON for tools with no compiler.",
   "type": "module",
   "license": "UNLICENSED",
