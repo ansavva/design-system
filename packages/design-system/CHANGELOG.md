@@ -74,6 +74,8 @@ no `scheme` renders exactly what it did on 0.21.9, following the OS as before.
   fonts take no scheme on either platform — a corner and a type family do not
   change with light and dark.
 
+[#28](https://github.com/ansavva/design-system/pull/28)
+
 ## 0.21.9 — patch
 
 React Native only, and only under react-native-web. On a real device nothing
