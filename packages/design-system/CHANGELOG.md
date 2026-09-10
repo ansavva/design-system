@@ -21,6 +21,59 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.22.0 — minor
+
+**Widen your range to take this:** `^0.21.x` will not resolve it.
+
+React Native only. No web leaf changed and no default moved: an app that passes
+no `scheme` renders exactly what it did on 0.21.9, following the OS as before.
+
+- **`ThemeProvider` takes a `scheme` now, so an in-app light/dark switch
+  reaches these components.** Which scheme is painted was the one theming
+  decision a React Native consumer could not make. The native leaves resolve
+  their colours from `useColorScheme()`, which reports the OS and nothing else,
+  and react-native-web 0.21 — the renderer a React Native consumer's users
+  actually meet these leaves in — ships no `Appearance.setColorScheme` to move
+  it. So an app offering its own switch could re-paint its own surfaces and not
+  one Button, Field, Table or Toast from here: one screen, two schemes, and no
+  seam to close it with short of forking the package.
+
+  ```tsx
+  const [scheme, setScheme] = useStoredScheme(); // 'light' | 'dark' | undefined
+
+  <ThemeProvider theme={brand} scheme={scheme}>
+    <App />
+  </ThemeProvider>;
+  ```
+
+  `'light' | 'dark'`, exported as `ThemeScheme`. Leave it off — the default,
+  and what every existing app does — and the leaves take the OS setting
+  exactly as before.
+
+- **The forced scheme selects the overrides as well as the tokens.** A `dark`
+  patch lands on a forced dark scheme under a light OS, because the scheme and
+  the override half it belongs to come from the same decision rather than two.
+  A leaf that read one from the provider and the other from the OS would paint
+  a dark canvas with the light brand on it.
+
+- **Nesting follows the overrides' rule: the nearest provider wins outright.**
+  An inner provider that names no scheme hands its subtree back to the OS
+  rather than inheriting the outer one's — the same "this subtree uses this
+  theme" the colours have had since 0.13.0, which is also why the scheme rides
+  on the existing theme context and `useThemeOverrides()` returns it as a
+  field. One context, one subscription, and no way for the two halves to
+  disagree about which provider is nearest. Its return type is `ThemeInScope`,
+  exported; the `theme` prop's type is unchanged, so `scheme` has exactly one
+  spelling and `theme={{ scheme: 'dark' }}` does not typecheck.
+
+- **On web the prop is a no-op, deliberately.** The scheme seam there is
+  `[data-theme='dark']` on the document element, and it belongs to the
+  consumer's own head script, which has to run before first paint or the page
+  flashes the wrong scheme. A component that wrote the attribute would be
+  fighting that script rather than helping it, so this one does not. Radii and
+  fonts take no scheme on either platform — a corner and a type family do not
+  change with light and dark.
+
 ## 0.21.9 — patch
 
 React Native only, and only under react-native-web. On a real device nothing
