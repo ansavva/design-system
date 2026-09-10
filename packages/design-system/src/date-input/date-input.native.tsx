@@ -104,6 +104,12 @@ export const DateInput = ({
   const c = useNativeColors();
   const r = useNativeRadii();
   const focus = useNativeFocusRing();
+  // TWO RINGS, NOT ONE. The text field and the picker button are two
+  // independently focusable controls — under react-native-web both are tab
+  // stops, and the web leaf rings both. A hook instance holds a single
+  // boolean, so sharing the field's would ring the whole field whenever the
+  // button took focus. Same shape PasswordInput's toggle uses.
+  const buttonFocus = useNativeFocusRing();
   const body = useNativeBodyFamily();
   const state = useDateInputState({
     mode,
@@ -321,7 +327,9 @@ export const DateInput = ({
           ...(open ? { 'aria-controls': surfaceId } : {}),
         } as object)}
         onPress={() => setOpen(!open)}
-        style={styles.button}
+        onFocus={buttonFocus.focus}
+        onBlur={buttonFocus.blur}
+        style={[styles.button, buttonFocus.ringStyle]}
       >
         {icon ?? <PickerIcon mode={mode} color={c.muted} />}
       </Pressable>
