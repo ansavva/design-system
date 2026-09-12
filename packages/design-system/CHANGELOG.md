@@ -21,6 +21,54 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.23.0 — minor
+
+**Widen your range to take this:** `^0.22.x` will not resolve it.
+
+- **`Dropdown` has sub-menus.** Three new parts: `Dropdown.Sub` wraps a
+  `Dropdown.SubTrigger` (a row that opens a nested menu instead of running a
+  command) and a `Dropdown.SubContent` (the nested menu, holding the same
+  `Item`, `Label`, `Divider` — and `Sub` — the top level does). Choosing a row
+  at any depth closes the whole menu, exactly as it did with one level.
+
+  ```tsx
+  <Dropdown.Content>
+    <Dropdown.Item onSelect={rename}>Rename</Dropdown.Item>
+    <Dropdown.Sub>
+      <Dropdown.SubTrigger>Move to</Dropdown.SubTrigger>
+      <Dropdown.SubContent>
+        <Dropdown.Item onSelect={() => move('drydock')}>Drydock</Dropdown.Item>
+        <Dropdown.Item onSelect={() => move('orbit')}>Orbit</Dropdown.Item>
+      </Dropdown.SubContent>
+    </Dropdown.Sub>
+  </Dropdown.Content>
+  ```
+
+  On web the sub-menu flies out beside its row, opening on hover or on
+  ArrowRight/Enter/Space (which also move focus into it); ArrowLeft and Escape
+  close one level and return focus to the row. On React Native it unfolds in
+  place beneath its row, press-driven like the rest of the native menu — a
+  phone has no room beside the menu for a flyout. Both platforms expose the
+  row as a `menuitem` with `aria-haspopup="menu"` and `aria-expanded`, and the
+  nested surface as a `menu` labelled by it. `Sub` takes `open` /
+  `defaultOpen` / `onOpenChange` like `Root`.
+
+- **`Popover.Root` takes `openOnHover`.** The popover opens when the pointer
+  rests on the trigger and when focus lands on it, and closes once both have
+  left the trigger and the popover together — moving into the popover keeps it
+  open, with a short grace period for the gap. A press still opens it, so a
+  touch screen is served, but with `openOnHover` a press never closes it (a tap
+  arrives as a hover first, and would otherwise cancel itself). Escape, the
+  outside press on web, and `Popover.Close` dismiss it as before. Leave the
+  prop off and nothing changes.
+
+- **Fix, React Native on the web:** `Dropdown.Trigger` and `Popover.Trigger`
+  now carry `aria-expanded` when rendered through react-native-web. Only the
+  nested `accessibilityState` was set, which react-native-web does not
+  translate, so the trigger announced no expanded state in a browser.
+
+[#29](https://github.com/ansavva/design-system/pull/29)
+
 ## 0.22.0 — minor
 
 **Widen your range to take this:** `^0.21.x` will not resolve it.
