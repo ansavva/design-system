@@ -21,6 +21,16 @@ the commit that seeded that history and published it.
 > the merge — which is why there is no 0.8.0–0.8.2, no 0.9.x, and no
 > 0.10.0–0.10.1.
 
+## 0.23.1 — patch
+
+- **A `Select` or `DateInput` inside a `Drawer`, `Dialog` or `AlertDialog` now
+  opens above it** in a React Native app running through react-native-web.
+  The portaled list sat at `z-index: 30` under react-native-web's Modal
+  (`9999`), so the modal painted over it: the trigger looked cut off and
+  offered no options. Nothing to change on your side.
+
+[#30](https://github.com/ansavva/design-system/pull/30)
+
 ## 0.23.0 — minor
 
 **Widen your range to take this:** `^0.22.x` will not resolve it.

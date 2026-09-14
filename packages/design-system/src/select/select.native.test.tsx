@@ -5,7 +5,7 @@
 // unreachable in the product if it lived only there.
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Platform, View } from 'react-native';
+import { Modal, Platform, View } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { colors } from '@ansavva/tokens';
@@ -228,6 +228,32 @@ describe('Select (native leaf)', () => {
       // not `style.zIndex` — react-native-web compiles StyleSheet rules to
       // atomic classes (`r-zIndex-…`) and sets no inline style.
       expect(screen.getByTestId('select-root').className).not.toMatch(/r-zIndex-/);
+    });
+
+    // Reported from a real browser too: a Select inside a Drawer opened its
+    // list to document.body, and the Drawer — react-native-web's Modal, a
+    // fixed container at z-index 9999 — painted over it. The trigger looked
+    // cut off and offered nothing. jsdom cannot see paint order, so this pins
+    // the number against the one react-native-web ships.
+    it('lifts the portaled list above react-native-web Modal (a Drawer or Dialog)', async () => {
+      const user = userEvent.setup();
+      render(
+        <Modal visible transparent>
+          <Select options={DISTRICTS} aria-label="District" />
+        </Modal>,
+      );
+
+      await user.click(screen.getByRole('combobox'));
+      const list = screen.getByRole('listbox');
+      // react-native-web's Modal is a fixed container at the top of the
+      // document with the 9999 on it (ModalAnimation.js); the dialog element
+      // sits inside it. Found from the body down, since its depth is RNW's.
+      const host = [...document.body.children].find((child) =>
+        child.contains(screen.getByRole('dialog')),
+      )!;
+      const modalZ = Number(getComputedStyle(host.firstElementChild!).zIndex);
+      expect(modalZ).toBe(9999);
+      expect(Number(getComputedStyle(list).zIndex)).toBeGreaterThan(modalZ);
     });
 
     it('removes the portaled list when closed', async () => {

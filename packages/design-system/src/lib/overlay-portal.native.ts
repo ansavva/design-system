@@ -225,11 +225,19 @@ export function useOverlayOutsidePress(
  * accepts and emits 'fixed', and the portal target (document.body) is exactly
  * where fixed and absolute-in-body agree anyway; the cast is contained here.
  *
- * zIndex 30 for the same reason the inline overlays' roots use 30: it has to
- * beat sibling page content, never a Dialog or AlertDialog, which render
- * through RN's Modal (itself portaled by react-native-web) and mount later in
- * document order.
+ * ABOVE react-native-web's Modal, not merely above page content. Dialog,
+ * AlertDialog and Drawer all render through RN's Modal, and react-native-web
+ * paints that as a `position: fixed` container at **`z-index: 9999`**
+ * (`ModalAnimation.js`). 0.23.0 and earlier used 30 here, reasoning that a
+ * Modal "mounts later in document order" — and document order is exactly what
+ * a z-index overrides. Measured in a real browser: a Select inside a Drawer
+ * opened its list to `document.body` at 30 and the Drawer painted over it,
+ * so the control looked cut off and offered no options. A Modal traps focus,
+ * so an overlay open at the same time as one is always an overlay INSIDE it;
+ * there is no case where a portaled list should sit under a Modal.
  */
+export const OVERLAY_PORTAL_Z_INDEX = 10_000;
+
 export function overlayPortalPosition(place: {
   top: number;
   left: number;
@@ -240,7 +248,7 @@ export function overlayPortalPosition(place: {
     top: place.top,
     left: place.left,
     ...(place.width === undefined ? {} : { width: place.width }),
-    zIndex: 30,
+    zIndex: OVERLAY_PORTAL_Z_INDEX,
   };
 }
 
